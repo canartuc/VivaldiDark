@@ -57,6 +57,9 @@ def validate(settings: dict, image: Path, zip_path: Path) -> list[str]:
         problems.append(f"unknown settings keys: {sorted(keys - EXPORT_KEYS)}")
     if EXPORT_KEYS - keys:
         problems.append(f"missing settings keys: {sorted(EXPORT_KEYS - keys)}")
+    name = settings.get("name", "")
+    if "·" in name or any(w in name.lower() for w in ("vivaldinight", "vivaldidark")):
+        problems.append(f"name {name!r} must be the theme title only, with no collection prefix")
     if settings.get("alpha", 0) < MIN_ALPHA:
         problems.append(f"alpha {settings.get('alpha')} < {MIN_ALPHA} makes every tab title white")
     w, h = Image.open(image).size

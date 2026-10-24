@@ -108,3 +108,10 @@ def test_build_theme_end_to_end(tmp_path):
     assert settings["buttons"] == {"Back": "back.svg", "Reload": "reload.svg"}
     assert settings["id"] == UUID
     assert Image.open(theme / "background.webp").size == (3840, 2160)
+
+
+@pytest.mark.parametrize("name", ["vivaldinight · Neon Fuji", "VivaldiDark Neon Fuji", "X · Neon Fuji"])
+def test_validate_rejects_prefixed_names(good, name):
+    settings, img, zp = good
+    settings["name"] = name
+    assert any("name" in p for p in package.validate(settings, img, zp))
