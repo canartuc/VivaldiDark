@@ -1,2 +1,3 @@
-# vivaldinight
-Tokyo Night Theme inspired Vivaldi Web Browser Theme
+# VivaldiDark
+
+Premium dark themes for the Vivaldi browser, inspired by the Tokyo Night colour palette.

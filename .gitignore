@@ -1,0 +1,6 @@
+.superpowers/
+.playwright-mcp/
+docs/superpowers/
+build/
+.venv/
+__pycache__/

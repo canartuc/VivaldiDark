@@ -1,0 +1,17 @@
+[project]
+name = "vivaldidark"
+version = "1.0.0"
+description = "Premium dark themes for the Vivaldi browser, inspired by Tokyo Night"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["pillow>=11", "websockets>=13"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["vivaldi: launches a throwaway Vivaldi profile (slow, macOS only)"]
