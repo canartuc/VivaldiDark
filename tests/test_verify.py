@@ -125,3 +125,31 @@ def test_lost_focus_becomes_pending_not_crash(tmp_path, monkeypatch):
     report = verify.verify_theme(make_theme(tmp_path, "Focus Fixture"), quick=True, out=tmp_path / "out", states=["find"])
     assert any("find" in p for p in report.pending)
     assert (tmp_path / "out" / "report.json").exists()
+
+
+def test_typed_url_does_not_leak_into_next_state(tmp_path):
+    with Vivaldi() as v:
+        verify.prepare_tabs(v)
+        verify.emulate(v, (1920, 1080))
+        for state in ("address-dropdown", "find"):  # the real matrix order
+            verify.state_setup(v, state)
+            verify.state_teardown(v, state)
+        verify.state_setup(v, "downloads-panel")
+        typed = v.run_ui("(document.querySelector('.UrlBar-UrlField') || {}).value || ''")
+        verify.state_teardown(v, "downloads-panel")
+    assert "exa" not in typed
+
+
+def test_selected_address_text_uses_selection_floor(tmp_path):
+    from tools import package
+    zp = package.build_theme(make_theme(tmp_path, "Selection Fixture"), tmp_path / "icons")
+    with Vivaldi() as v:
+        v.install_theme(zp)
+        verify.prepare_tabs(v)
+        verify.emulate(v, (1920, 1080))
+        opts = verify.state_setup(v, "address-dropdown")
+        shot = v.screenshot(tmp_path / "dd.png")
+        fails = verify.check_frame(v, "dd", shot, opts.get("floor", 4.5), url_floor=opts.get("url_floor"))
+        verify.state_teardown(v, "address-dropdown")
+    assert opts.get("url_floor") == verify.SELECTION_FLOOR
+    assert not [f for f in fails if "address" in f], fails

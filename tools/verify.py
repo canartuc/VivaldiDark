@@ -25,6 +25,9 @@ SCALE = 2  # every screenshot is taken at device scale 2
 DIM = "rgb(130, 139, 184)"
 BRIGHT = "rgb(255, 255, 255)"
 TEXT_FLOOR, UI_FLOOR, BLURRED_FLOOR = 4.5, 3.0, 3.0
+# Selected text in a focused address field: Chromium paints the selection from the highlight colour
+# at ~50% and keeps the dim text colour (owner-accepted platform limitation). Guard against regressions.
+SELECTION_FLOOR = 1.6
 
 DARK_PAGE = ("data:text/html,<title>Dark site</title><body style='margin:0;background:%230d1117;color:%23c9d1d9;"
              "font:16px system-ui;padding:40px'><h1>Dark site</h1><p>Body text on a dark page.</p>")
@@ -140,7 +143,7 @@ def _hidden_text_shot(v: Vivaldi, path: Path) -> Path:
 
 
 def check_frame(v: Vivaldi, label: str, shot: Path, floor: float = TEXT_FLOOR, hovered: int | None = None,
-                blurred: bool = False) -> list[str]:
+                blurred: bool = False, url_floor: float | None = None) -> list[str]:
     failures = []
     m = v.measure()
     if "unified-ui" not in m["classes"] or "unified-ui-transparent" in m["classes"]:
@@ -173,8 +176,9 @@ def check_frame(v: Vivaldi, label: str, shot: Path, floor: float = TEXT_FLOOR, h
             continue
         bg = contrast.worst_bg(hidden, frag["rect"], SCALE, frag["color"], text_png=shot)
         r = contrast.ratio(frag["color"], bg)
-        if r < floor:
-            failures.append(f"{label}: address text '{frag['text'][:30]}' contrast {r:.2f} < {floor} on {bg}")
+        need = url_floor if url_floor is not None else floor
+        if r < need:
+            failures.append(f"{label}: address text '{frag['text'][:30]}' contrast {r:.2f} < {need} on {bg}")
     return failures
 
 
@@ -253,6 +257,7 @@ def state_setup(v: Vivaldi, state: str) -> dict:
         _click(v, *pt)
         v.ui.send("Input.insertText", {"text": "exa"})
         time.sleep(1.0)
+        return {"url_floor": SELECTION_FLOOR}
     elif state == "find":
         _activate(v, "Light site")
         macos.key(v.proc.pid, "f", ["command"])  # Vivaldi's shortcuts only react to real keystrokes
@@ -260,7 +265,19 @@ def state_setup(v: Vivaldi, state: str) -> dict:
     return {}
 
 
+def _clear_typed_url(v: Vivaldi) -> None:
+    """Vivaldi keeps half-typed address text per tab; erase what the address-dropdown state typed."""
+    pt = _centre(v, ".UrlBar-UrlField")
+    if pt:
+        _click(v, *pt)
+        v.run_ui("document.querySelector('.UrlBar-UrlField').select(), true")
+        _key(v, "Backspace", "Backspace", 8)
+        time.sleep(0.2)
+
+
 def state_teardown(v: Vivaldi, state: str) -> None:
+    if state == "address-dropdown":
+        _clear_typed_url(v)
     if state == "find":
         macos.key(v.proc.pid, "escape")
         time.sleep(0.4)
@@ -458,7 +475,8 @@ def verify_theme(theme_dir: Path, quick: bool = False, out: Path | None = None,
                         continue
                     v.screenshot(shot)
                     fails = check_frame(v, f"{layout} {size[0]}x{size[1]} {state}", shot,
-                                        opts.get("floor", TEXT_FLOOR), opts.get("hovered"), opts.get("blurred", False))
+                                        opts.get("floor", TEXT_FLOOR), opts.get("hovered"), opts.get("blurred", False),
+                                        opts.get("url_floor"))
                     report.failures += fails
                     report.checks.append({"layout": layout, "size": size, "state": state, "failures": fails})
                     try:

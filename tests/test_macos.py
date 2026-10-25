@@ -98,3 +98,10 @@ def test_native_menu_capture_is_proven(tmp_path):
         verify.prepare_tabs(v)
         shot = macos.native_menu(v, ".tab-position .tab:not(.active)", tmp_path / "menu.png")
     assert shot.exists()
+
+
+def test_capture_window_creates_missing_folders(tmp_path):
+    from tools.vivaldi import Vivaldi
+    with Vivaldi() as v:
+        png = macos.capture_window(v, tmp_path / "new" / "nested" / "w.png")
+    assert png.exists()

@@ -109,6 +109,7 @@ def place_on_main_display(v) -> None:
 
 
 def _reference(v, path: Path) -> Path:
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
     data = v.ui.send("Page.captureScreenshot", {"format": "png"})["data"]
     Image.open(io.BytesIO(base64.b64decode(data))).save(path)
     return path
