@@ -90,3 +90,15 @@ def test_export_keys_match_schema(browser, tmp_path):
     exported = browser.export_current_settings()
     from tools.settings_schema import EXPORT_KEYS
     assert set(exported) == EXPORT_KEYS
+
+
+def test_startpage_busy_rect_is_central(browser):
+    browser.ui.send("Emulation.setDeviceMetricsOverride", {"width": 1920, "height": 1080, "deviceScaleFactor": 2, "mobile": False})
+    try:
+        browser.run_ui("new Promise(r => chrome.tabs.query({}, ts => chrome.tabs.update(ts.find(t => (t.url || '').includes('startpage')).id, {active: true}, r)))")
+        x, y, w, h = browser.startpage_busy_rect()
+    finally:
+        browser.ui.send("Emulation.clearDeviceMetricsOverride")
+    assert 300 < w < 1600 and 200 < h < 1000
+    assert abs((x + w / 2) - 1920 / 2) < 120  # centred in the window, give or take the side panel
+    assert 40 < y < 400

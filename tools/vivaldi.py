@@ -174,7 +174,8 @@ class Vivaldi:
           const rect = el => { const r = el.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; };
           const tabs = [...document.querySelectorAll('.tab-position .tab')].map(t => {
             const title = t.querySelector('.title') || t;
-            return {active: t.classList.contains('active'), color: getComputedStyle(title).color, rect: rect(title)};
+            const range = document.createRange(); range.selectNodeContents(title);  // exact text bounds
+            return {active: t.classList.contains('active'), color: getComputedStyle(title).color, rect: rect(range)};
           });
           const url = document.querySelector('.UrlBar-UrlField, .UrlField input, input.url');
           const icons = [...document.querySelectorAll('.toolbar .button-toolbar button[name]')].map(btn => ({
@@ -195,6 +196,17 @@ class Vivaldi:
         self.browser.send("Browser.setWindowBounds",
                           {"windowId": win, "bounds": {"left": 0, "top": 0, "width": width, "height": height}})
         time.sleep(0.6)
+
+    def startpage_busy_rect(self) -> list[float]:
+        """Union (x, y, w, h) of the Start Page navigation, search box, speed dials and widgets."""
+        self._wait_js("!!document.querySelector('.SpeedDialView-Head')", 15)
+        return self.ui.evaluate("""(() => {
+          const els = document.querySelectorAll('.startpage-navigation, .SpeedDialView-Head, .SpeedDial, .dashboard-widget');
+          const rs = [...els].map(e => e.getBoundingClientRect()).filter(r => r.width && r.height);
+          const x0 = Math.min(...rs.map(r => r.x)), y0 = Math.min(...rs.map(r => r.y));
+          const x1 = Math.max(...rs.map(r => r.right)), y1 = Math.max(...rs.map(r => r.bottom));
+          return [x0, y0, x1 - x0, y1 - y0];
+        })()""")
 
     # --- settings ---------------------------------------------------------------------------
     def replaceable_buttons(self) -> list[str]:

@@ -1,0 +1,57 @@
+"""Integration tests for the verification runner (launch Vivaldi)."""
+import json
+from pathlib import Path
+
+import pytest
+
+from tests.test_vivaldi import SCENE
+from tools import verify
+from tools.vivaldi import Vivaldi
+
+pytestmark = pytest.mark.vivaldi
+
+WHITE_SCENE = SCENE.replace("#0c0e14", "#f4f4f6").replace("#1f2335", "#ffffff")
+
+
+def make_theme(tmp_path: Path, name: str, scene: str = SCENE, highlight: str = "#7aa2f7") -> Path:
+    theme = tmp_path / "themes" / name.lower().replace(" ", "-")
+    theme.mkdir(parents=True)
+    (theme / "scene.py").write_text(scene)
+    (theme / "theme.json").write_text(json.dumps(dict(
+        slug=theme.name, name=name, id="11111111-2222-4333-8444-%012d" % (abs(hash(name)) % 10**12),
+        highlight=highlight, radius=8, alpha=0.5, blur=4, webp_quality=90)))
+    return theme
+
+
+def test_verify_quick_passes_fixture(tmp_path):
+    report = verify.verify_theme(make_theme(tmp_path, "Dark Fixture"), quick=True, out=tmp_path / "out")
+    assert report.failures == [], report.failures
+    assert (tmp_path / "out" / "tabs-top" / "1920x1080" / "startpage.png").exists()
+
+
+def test_verify_flags_bright_bars(tmp_path):
+    report = verify.verify_theme(make_theme(tmp_path, "White Fixture", WHITE_SCENE), quick=True, out=tmp_path / "out")
+    assert any("contrast" in f for f in report.failures)
+
+
+def test_controls_audit_reports_every_control(tmp_path):
+    from tools import package
+    zp = package.build_theme(make_theme(tmp_path, "Controls Fixture"), tmp_path / "icons")
+    with Vivaldi() as v:
+        v.install_theme(zp)
+        results = verify.audit_controls(v, sections=["tabs"], shots=tmp_path / "shots")
+    kinds = {r["kind"] for r in results}
+    assert {"checkbox", "radio"} <= kinds
+    assert sum(r["kind"] == "checkbox" for r in results) >= 30  # the Tabs section has 38
+    assert all({"kind", "checked", "ident", "ok", "section"} <= set(r) for r in results)
+
+
+def test_menu_audit_lists_items(tmp_path):
+    from tools import package
+    zp = package.build_theme(make_theme(tmp_path, "Menu Fixture"), tmp_path / "icons")
+    with Vivaldi() as v:
+        v.install_theme(zp)
+        menus = verify.audit_menus(v, shots=tmp_path / "shots")
+    workspaces = next(m for m in menus if m["menu"] == "workspaces")
+    assert len(workspaces["items"]) >= 1
+    assert all({"text", "color", "bg", "ratio", "ok"} <= set(i) for i in workspaces["items"])
