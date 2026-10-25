@@ -94,30 +94,30 @@ SHADE = "#06070b"
 
 
 def _eased(start: float, end: float, strength: float, rising: bool) -> list:
-    """Gradient stops with a smoothstep ramp between `start` and `end` (fractions), so no edge shows."""
+    """Gradient stops with a smootherstep ramp between `start` and `end` (fractions): no visible edge."""
     out = []
-    for i in range(9):
-        t = i / 8
-        s = t * t * (3 - 2 * t)
+    for i in range(17):
+        t = i / 16
+        s = t * t * t * (t * (6 * t - 15) + 10)
         a = strength * (s if rising else 1 - s)
         out.append((round(start + (end - start) * t, 4), SHADE, round(a, 3)))
     return out
 
 
 def bar_zones(strength: float = 0.9) -> tuple[str, str]:
-    """(defs, body) that sink the art into shadow where Vivaldi's bars sit, fading smoothly inward.
+    """(defs, body) that sink the art into shadow where Vivaldi's bars sit.
 
-    Strong zones: top 0..420 px (tab + address bar, up to 21:9 crops), left 0..950 px (vertical tab
-    bar at small windows), bottom 1840..2160 px (status bar). Faded to nothing by 620 / 1350 / 1680.
+    Full strength only right under the bars (top 0..300 px, left 0..700 px, bottom 1950..2160 px),
+    then a long, gentle falloff (to 800 / 2300 / 1300 px) so the scene reads as light falling
+    from the right rather than as a frame. Measured against tab text in tests/test_scenes.py.
     """
-    top = lin("bzTop", _eased(420 / 620, 1, strength, rising=False), x1="0", y1="0", x2="0", y2="620", units="userSpaceOnUse")
-    left = lin("bzLeft", _eased(950 / 1350, 1, strength, rising=False), x1="0", y1="0", x2="1350", y2="0", units="userSpaceOnUse")
-    bottom = lin("bzBottom", _eased(0, 160 / 480, strength, rising=True), x1="0", y1="1680", x2="0", y2="2160", units="userSpaceOnUse")
-    # flat full-strength stops before the ramps
-    top = top.replace("<stop", f'<stop offset="0" stop-color="{SHADE}" stop-opacity="{strength}"/><stop', 1)
-    left = left.replace("<stop", f'<stop offset="0" stop-color="{SHADE}" stop-opacity="{strength}"/><stop', 1)
-    bottom = bottom.replace("</linearGradient>", f'<stop offset="1" stop-color="{SHADE}" stop-opacity="{strength}"/></linearGradient>')
-    body = (f'<rect width="{W}" height="620" fill="url(#bzTop)"/>'
-            f'<rect width="1350" height="{H}" fill="url(#bzLeft)"/>'
-            f'<rect y="1680" width="{W}" height="480" fill="url(#bzBottom)"/>')
+    top = lin("bzTop", [(0, SHADE, strength)] + _eased(300 / 800, 1, strength, rising=False),
+              x1="0", y1="0", x2="0", y2="800", units="userSpaceOnUse")
+    left = lin("bzLeft", [(0, SHADE, strength)] + _eased(700 / 2300, 1, strength, rising=False),
+               x1="0", y1="0", x2="2300", y2="0", units="userSpaceOnUse")
+    bottom = lin("bzBottom", _eased(0, 650 / 860, strength, rising=True) + [(1, SHADE, strength)],
+                 x1="0", y1="1300", x2="0", y2="2160", units="userSpaceOnUse")
+    body = (f'<rect width="{W}" height="800" fill="url(#bzTop)"/>'
+            f'<rect width="2300" height="{H}" fill="url(#bzLeft)"/>'
+            f'<rect y="1300" width="{W}" height="860" fill="url(#bzBottom)"/>')
     return top + left + bottom, body
