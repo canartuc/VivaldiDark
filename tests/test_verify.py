@@ -114,3 +114,14 @@ def test_find_state_opens_find_bar(tmp_path):
         verify.state_teardown(v, "find")
         hidden = v.run_ui("![...document.querySelectorAll('.find-in-page-wrapper')].some(e => e.getBoundingClientRect().height > 10)")
     assert visible and hidden
+
+
+def test_lost_focus_becomes_pending_not_crash(tmp_path, monkeypatch):
+    from tools import macos
+
+    def refuse(*a, **k):
+        raise macos.NotFrontmost("user is typing elsewhere")
+    monkeypatch.setattr(macos, "key", refuse)
+    report = verify.verify_theme(make_theme(tmp_path, "Focus Fixture"), quick=True, out=tmp_path / "out", states=["find"])
+    assert any("find" in p for p in report.pending)
+    assert (tmp_path / "out" / "report.json").exists()

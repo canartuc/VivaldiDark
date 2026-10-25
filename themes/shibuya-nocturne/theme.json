@@ -1,0 +1,10 @@
+{
+ "slug": "shibuya-nocturne",
+ "name": "Shibuya Nocturne",
+ "id": "5e105927-514c-4167-b09e-19d7d9d5a1e6",
+ "highlight": "#7aa2f7",
+ "radius": 8,
+ "alpha": 0.5,
+ "blur": 4,
+ "webp_quality": 90
+}

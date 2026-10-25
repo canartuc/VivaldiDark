@@ -36,3 +36,22 @@ def test_theme_config(slug):
     assert re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}", cfg.id)
     assert 0.5 <= cfg.alpha <= 0.6 and 4 <= cfg.blur <= 6
     assert "·" not in cfg.name and "vivaldi" not in cfg.name.lower()
+
+
+ZONES = {"top": (0, 0, 3840, 420), "left": (0, 0, 950, 2160), "bottom": (0, 1840, 3840, 2160)}
+MAX_LUMINANCE = 0.03  # art at or below this keeps #828bb8 text >= 4.5:1 after Vivaldi's 50% bar blend
+
+
+@pytest.mark.parametrize("slug", THEMES)
+def test_bar_zones_are_dark(slug, tmp_path):
+    from PIL import Image
+    from tools import contrast
+    from tools.render import render_svg
+    svg = tmp_path / "art.svg"
+    svg.write_text(package.load_scene(REPO / "themes" / slug).build())
+    render_svg(svg, tmp_path / "art.png")
+    img = Image.open(tmp_path / "art.png").convert("RGB").reduce(2)  # ignore single sub-pixel sparkles
+    for name, (x0, y0, x1, y1) in ZONES.items():
+        region = img.crop((x0 // 2, y0 // 2, x1 // 2, y1 // 2))
+        worst = max(set(region.get_flattened_data()), key=contrast.luminance)
+        assert contrast.luminance(worst) <= MAX_LUMINANCE, f"{name} zone has {worst}"

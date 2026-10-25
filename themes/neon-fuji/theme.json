@@ -1,0 +1,10 @@
+{
+ "slug": "neon-fuji",
+ "name": "Neon Fuji",
+ "id": "00899182-8ae2-4773-aaf9-e466b36c3e81",
+ "highlight": "#bb9af7",
+ "radius": 10,
+ "alpha": 0.5,
+ "blur": 4,
+ "webp_quality": 95
+}

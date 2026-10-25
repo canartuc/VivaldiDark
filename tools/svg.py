@@ -88,3 +88,36 @@ def rain(rng, n, color, amin=0.05, amax=0.2):
         r.append(f'<line x1="{f(x)}" y1="{f(y)}" x2="{f(x-L*0.16)}" y2="{f(y+L)}" '
                  f'stroke-opacity="{rng.uniform(amin,amax):.2f}" stroke-width="{rng.choice([1,1,1.4,2])}"/>')
     return f'<g stroke="{color}" stroke-linecap="round">{"".join(r)}</g>'
+
+
+SHADE = "#06070b"
+
+
+def _eased(start: float, end: float, strength: float, rising: bool) -> list:
+    """Gradient stops with a smoothstep ramp between `start` and `end` (fractions), so no edge shows."""
+    out = []
+    for i in range(9):
+        t = i / 8
+        s = t * t * (3 - 2 * t)
+        a = strength * (s if rising else 1 - s)
+        out.append((round(start + (end - start) * t, 4), SHADE, round(a, 3)))
+    return out
+
+
+def bar_zones(strength: float = 0.9) -> tuple[str, str]:
+    """(defs, body) that sink the art into shadow where Vivaldi's bars sit, fading smoothly inward.
+
+    Strong zones: top 0..420 px (tab + address bar, up to 21:9 crops), left 0..950 px (vertical tab
+    bar at small windows), bottom 1840..2160 px (status bar). Faded to nothing by 620 / 1350 / 1680.
+    """
+    top = lin("bzTop", _eased(420 / 620, 1, strength, rising=False), x1="0", y1="0", x2="0", y2="620", units="userSpaceOnUse")
+    left = lin("bzLeft", _eased(950 / 1350, 1, strength, rising=False), x1="0", y1="0", x2="1350", y2="0", units="userSpaceOnUse")
+    bottom = lin("bzBottom", _eased(0, 160 / 480, strength, rising=True), x1="0", y1="1680", x2="0", y2="2160", units="userSpaceOnUse")
+    # flat full-strength stops before the ramps
+    top = top.replace("<stop", f'<stop offset="0" stop-color="{SHADE}" stop-opacity="{strength}"/><stop', 1)
+    left = left.replace("<stop", f'<stop offset="0" stop-color="{SHADE}" stop-opacity="{strength}"/><stop', 1)
+    bottom = bottom.replace("</linearGradient>", f'<stop offset="1" stop-color="{SHADE}" stop-opacity="{strength}"/></linearGradient>')
+    body = (f'<rect width="{W}" height="620" fill="url(#bzTop)"/>'
+            f'<rect width="1350" height="{H}" fill="url(#bzLeft)"/>'
+            f'<rect y="1680" width="{W}" height="480" fill="url(#bzBottom)"/>')
+    return top + left + bottom, body

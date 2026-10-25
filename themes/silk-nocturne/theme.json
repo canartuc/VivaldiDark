@@ -1,0 +1,10 @@
+{
+ "slug": "silk-nocturne",
+ "name": "Silk Nocturne",
+ "id": "301e0c5e-7f37-466c-a96c-2b7fe88db426",
+ "highlight": "#7dcfff",
+ "radius": 12,
+ "alpha": 0.55,
+ "blur": 6,
+ "webp_quality": 95
+}

@@ -419,7 +419,10 @@ def native_menus(zip_path: Path, shots: Path) -> tuple[list[Path], list[str]]:
         with Vivaldi() as v:
             v.install_theme(zip_path)
             prepare_tabs(v)
-            _activate(v, "Light site" if name == "page" else "Start Page")
+            if name == "page":
+                _activate(v, "Light site")
+            else:
+                _activate(v, "Start Page", "startpage")
             try:
                 captured.append(macos.native_menu(v, selector, Path(shots) / f"native-{name}.png"))
             except (macos.UnsafeCapture, macos.NotFrontmost) as e:
@@ -428,13 +431,16 @@ def native_menus(zip_path: Path, shots: Path) -> tuple[list[Path], list[str]]:
 
 
 # --- runner ---------------------------------------------------------------------------------
-def verify_theme(theme_dir: Path, quick: bool = False, out: Path | None = None) -> Report:
+def verify_theme(theme_dir: Path, quick: bool = False, out: Path | None = None,
+                 states: list[str] | None = None) -> Report:
     theme_dir = Path(theme_dir)
     cfg = package.load_config(theme_dir)
     out = Path(out or REPO / "build" / "verify" / cfg.slug)
     zip_path = package.build_theme(theme_dir, REPO / "icons")
     report = Report(cfg.slug)
-    plan = QUICK if quick else dict(sizes=SIZES, layouts=LAYOUTS, states=STATES)
+    plan = dict(QUICK if quick else dict(sizes=SIZES, layouts=LAYOUTS, states=STATES))
+    if states:
+        plan["states"] = states
     with Vivaldi() as v:
         v.install_theme(zip_path)
         prepare_tabs(v)
@@ -444,13 +450,24 @@ def verify_theme(theme_dir: Path, quick: bool = False, out: Path | None = None) 
                 emulate(v, size)
                 for state in plan["states"]:
                     shot = out / layout / f"{size[0]}x{size[1]}" / f"{state}.png"
-                    opts = state_setup(v, state)
+                    try:
+                        opts = state_setup(v, state)
+                    except macos.NotFrontmost as e:  # the user took focus; never type blind
+                        report.pending.append(f"{layout} {size[0]}x{size[1]} {state}: {e}")
+                        _reset(v)
+                        continue
                     v.screenshot(shot)
                     fails = check_frame(v, f"{layout} {size[0]}x{size[1]} {state}", shot,
                                         opts.get("floor", TEXT_FLOOR), opts.get("hovered"), opts.get("blurred", False))
                     report.failures += fails
                     report.checks.append({"layout": layout, "size": size, "state": state, "failures": fails})
-                    state_teardown(v, state)
+                    try:
+                        state_teardown(v, state)
+                    except macos.NotFrontmost as e:
+                        report.pending.append(f"{layout} {size[0]}x{size[1]} {state} teardown: {e}")
+                        _reset(v)
+        out.mkdir(parents=True, exist_ok=True)
+        report.save(out / "report.json")  # keep the matrix results whatever happens next
         if not quick:
             set_layout(v, "tabs-top")
             emulate(v, (1920, 1080))
