@@ -105,3 +105,33 @@ def test_capture_window_creates_missing_folders(tmp_path):
     with Vivaldi() as v:
         png = macos.capture_window(v, tmp_path / "new" / "nested" / "w.png")
     assert png.exists()
+
+
+def _scene(tmp_path, name, boxes):
+    im = Image.new("RGB", (1280, 768), (20, 20, 30))
+    for (x0, y0, x1, y1) in boxes:
+        for x in range(x0, x1):
+            for y in range(y0, y1):
+                im.putpixel((x, y), (200, 200, 220))
+    p = tmp_path / name
+    im.save(p)
+    return p
+
+
+def test_menu_proof_tolerates_caret_and_clock_ticks(tmp_path):
+    before = _scene(tmp_path, "b.png", [])
+    # menu at the click + a 2px caret blink + a clock digit change far away
+    after = _scene(tmp_path, "a.png", [(300, 100, 700, 600), (900, 40, 902, 60), (1200, 740, 1230, 760)])
+    assert macos.menu_proof(before, after, point=(310, 110))
+
+
+def test_menu_proof_rejects_a_notification_banner(tmp_path):
+    before = _scene(tmp_path, "b.png", [])
+    after = _scene(tmp_path, "a.png", [(300, 100, 700, 600), (880, 20, 1270, 160)])  # a banner-sized block
+    assert not macos.menu_proof(before, after, point=(310, 110))
+
+
+def test_menu_proof_rejects_no_menu(tmp_path):
+    before = _scene(tmp_path, "b.png", [])
+    after = _scene(tmp_path, "a.png", [(900, 40, 902, 60)])
+    assert not macos.menu_proof(before, after, point=(310, 110))

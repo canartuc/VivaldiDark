@@ -47,6 +47,42 @@ def change_boxes(before_png: Path, after_png: Path, tol: int = 14, cell: int = 6
     return [(min(xs), min(ys), max(xs) + cell, max(ys) + cell), f"{len(cells)} cells"]
 
 
+def menu_proof(before_png: Path, after_png: Path, point, cell: int = 64, max_other_cells: int = 2,
+               tol: int = 14) -> bool:
+    """The changes between two captures are a menu and nothing that could be another window.
+
+    Changed pixels are grouped into connected blocks of `cell`-sized grid squares. The block holding
+    `point` is the menu and must exist; every other block must be tiny (a blinking caret, a clock
+    digit). Another app's window or a notification is a large block and fails the proof.
+    """
+    a = Image.open(before_png).convert("RGB")
+    b = Image.open(after_png).convert("RGB").resize(a.size)
+    mask = ImageChops.difference(a, b).convert("L").point(lambda d: 255 if d > tol else 0)
+    cols, rows = (a.size[0] + cell - 1) // cell, (a.size[1] + cell - 1) // cell
+    changed = {(cx, cy) for cy in range(rows) for cx in range(cols)
+               if mask.crop((cx * cell, cy * cell, (cx + 1) * cell, (cy + 1) * cell)).getbbox()}
+    blocks, seen = [], set()
+    for start in changed:
+        if start in seen:
+            continue
+        stack, block = [start], set()
+        seen.add(start)
+        while stack:
+            cx, cy = stack.pop()
+            block.add((cx, cy))
+            for nx in (cx - 1, cx, cx + 1):
+                for ny in (cy - 1, cy, cy + 1):
+                    if (nx, ny) in changed and (nx, ny) not in seen:
+                        seen.add((nx, ny))
+                        stack.append((nx, ny))
+        blocks.append(block)
+    home = (int(point[0]) // cell, int(point[1]) // cell)
+    menu = next((blk for blk in blocks if any(abs(cx - home[0]) <= 1 and abs(cy - home[1]) <= 1 for cx, cy in blk)), None)
+    if menu is None:
+        return False
+    return all(len(blk) <= max_other_cells for blk in blocks if blk is not menu)
+
+
 def change_is_local(before_png: Path, after_png: Path, point, max_share: float, tol: int = 14) -> bool:
     """True when everything that changed sits in one box that starts at `point` (the menu) and is small."""
     a = Image.open(before_png).convert("RGB")
@@ -161,6 +197,11 @@ def native_menu(v, selector: str, path: Path) -> Path:
     menu and quit it afterwards, which closes the menu without keystrokes.
     """
     path = Path(path)
+    # An open native menu takes focus and Vivaldi then dims its UI (`isblurred`) — at an unpredictable
+    # moment. Hold the class off while capturing so the only difference from the baseline is the menu.
+    v.run_ui("""(() => { const b = document.getElementById('browser');
+      window.__vdKeepFocus = new MutationObserver(() => b.classList.contains('isblurred') && b.classList.remove('isblurred'));
+      window.__vdKeepFocus.observe(b, {attributes: true, attributeFilter: ['class']}); return true; })()""")
     before = capture_window(v, path.with_suffix(".before.png"))
     pt = v.run_ui(f"""(() => {{ const e = document.querySelector({selector!r}); if (!e) return null;
       const r = e.getBoundingClientRect(); return [r.x + Math.min(30, r.width / 2), r.y + r.height / 2]; }})()""")
@@ -176,7 +217,7 @@ def native_menu(v, selector: str, path: Path) -> Path:
     x, y, w, h = window_rect(v)
     shot = capture(path, (x, y, w, h))
     scale = Image.open(shot).size[0] / w
-    local = change_is_local(before, shot, (pt[0] * scale, pt[1] * scale), max_share=0.35)
+    local = menu_proof(before, shot, (pt[0] * scale, pt[1] * scale))
     if not local:
         boxes = change_boxes(before, shot)
         before.unlink()
@@ -184,4 +225,5 @@ def native_menu(v, selector: str, path: Path) -> Path:
         raise UnsafeCapture(f"changes outside the menu area (click {[round(c * scale) for c in pt]}, changed regions {boxes}); "
                             "capture deleted unseen")
     before.unlink()
+    v.run_ui("window.__vdKeepFocus && window.__vdKeepFocus.disconnect(), true")
     return shot
