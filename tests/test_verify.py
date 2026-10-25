@@ -55,3 +55,62 @@ def test_menu_audit_lists_items(tmp_path):
     workspaces = next(m for m in menus if m["menu"] == "workspaces")
     assert len(workspaces["items"]) >= 1
     assert all({"text", "color", "bg", "ratio", "ok"} <= set(i) for i in workspaces["items"])
+
+
+def test_states_do_not_leak(tmp_path):
+    from tools import package
+    zp = package.build_theme(make_theme(tmp_path, "Leak Fixture"), tmp_path / "icons")
+    with Vivaldi() as v:
+        v.install_theme(zp)
+        verify.prepare_tabs(v)
+        verify.emulate(v, (1920, 1080))
+        verify.state_setup(v, "address-dropdown")
+        assert v.run_ui("!!document.querySelector('.OmniDropdown')")
+        verify.state_teardown(v, "address-dropdown")
+        assert v.run_ui("!document.querySelector('.OmniDropdown')")
+
+
+def test_settings_address_measures_clean(tmp_path):
+    from tools import package
+    zp = package.build_theme(make_theme(tmp_path, "Settings Fixture"), tmp_path / "icons")
+    with Vivaldi() as v:
+        v.install_theme(zp)
+        verify.prepare_tabs(v)
+        verify.emulate(v, (1920, 1080))
+        verify.state_setup(v, "settings")
+        shot = v.screenshot(tmp_path / "settings.png")
+        fails = verify.check_frame(v, "settings", shot)
+    assert not [f for f in fails if "address" in f], fails
+
+
+def test_unfocused_accepts_vivaldis_own_dimming(tmp_path):
+    from tools import package
+    zp = package.build_theme(make_theme(tmp_path, "Blur Fixture"), tmp_path / "icons")
+    with Vivaldi() as v:
+        v.install_theme(zp)
+        verify.prepare_tabs(v)
+        verify.emulate(v, (1920, 1080))
+        opts = verify.state_setup(v, "unfocused")
+        shot = v.screenshot(tmp_path / "unfocused.png")
+        fails = verify.check_frame(v, "unfocused", shot, opts.get("floor", 4.5), blurred=opts.get("blurred", False))
+        verify.state_teardown(v, "unfocused")
+    assert fails == [], fails
+
+
+@pytest.mark.parametrize("state, title", [("dark-site", "Dark site"), ("light-site", "Light site"), ("settings", "Settings")])
+def test_states_activate_the_right_tab(tmp_path, state, title):
+    with Vivaldi() as v:
+        verify.prepare_tabs(v)
+        verify.state_setup(v, state)
+        active = v.run_ui("new Promise(r => chrome.tabs.query({active: true, currentWindow: true}, t => r(t[0].title)))")
+    assert title.lower() in active.lower()
+
+
+def test_find_state_opens_find_bar(tmp_path):
+    with Vivaldi() as v:
+        verify.prepare_tabs(v)
+        verify.state_setup(v, "find")
+        visible = v.run_ui("[...document.querySelectorAll('.find-in-page-wrapper')].some(e => e.getBoundingClientRect().height > 10)")
+        verify.state_teardown(v, "find")
+        hidden = v.run_ui("![...document.querySelectorAll('.find-in-page-wrapper')].some(e => e.getBoundingClientRect().height > 10)")
+    assert visible and hidden

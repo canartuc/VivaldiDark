@@ -100,3 +100,9 @@ def test_worst_bg_only_samples_under_text_pixels(tmp_path: Path):
     with_text.save(shown)
     got = contrast.worst_bg(hidden, [0, 0, 50, 25], 2, "#ffffff", text_png=shown)
     assert got == (60, 60, 60)
+
+
+def test_section_selector_quotes_numeric_ids():
+    from tools.verify import section_selector
+    assert section_selector("293") == '.vivaldi-settings .tree-item[data-id="293"] .tree-row'
+    assert section_selector("tabs") == '.vivaldi-settings .tree-item[data-id="tabs"] .tree-row'

@@ -11,7 +11,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from tools import contrast, package
+from tools import contrast, macos, package
 from tools.svg import H as ART_H, W as ART_W
 from tools.vivaldi import Vivaldi
 
@@ -106,9 +106,10 @@ def analyze_control(png: Path, rect, scale: float, checked: bool) -> dict:
 
 # --- live helpers ---------------------------------------------------------------------------
 def _key(v: Vivaldi, key: str, code: str, vk: int, modifiers: int = 0) -> None:
-    for t in ("keyDown", "keyUp"):
+    """Non-character keys (and shortcuts) must be rawKeyDown for Chromium to act on them."""
+    for t in ("rawKeyDown", "keyUp"):
         v.ui.send("Input.dispatchKeyEvent", {"type": t, "key": key, "code": code,
-                                             "windowsVirtualKeyCode": vk, "modifiers": modifiers})
+                                             "windowsVirtualKeyCode": vk, "nativeVirtualKeyCode": vk, "modifiers": modifiers})
 
 
 def _click(v: Vivaldi, x: float, y: float, button: str = "left") -> None:
@@ -130,7 +131,7 @@ def emulate(v: Vivaldi, size) -> None:
 def _hidden_text_shot(v: Vivaldi, path: Path) -> Path:
     """Screenshot with tab titles and address text transparent, to sample what sits behind them."""
     v.run_ui("""(() => { const s = document.createElement('style'); s.id = 'vd-hide';
-      s.textContent = '.tab .title, .UrlBar-UrlField, .UrlBar-UrlField * { color: transparent !important; -webkit-text-fill-color: transparent !important; caret-color: transparent !important; }';
+      s.textContent = '.tab .title, .UrlBar-UrlField, .UrlFragment-Wrapper, .UrlFragment-Wrapper * { color: transparent !important; -webkit-text-fill-color: transparent !important; caret-color: transparent !important; }';
       document.head.append(s); })()""")
     time.sleep(0.2)
     v.screenshot(path)
@@ -138,7 +139,8 @@ def _hidden_text_shot(v: Vivaldi, path: Path) -> Path:
     return path
 
 
-def check_frame(v: Vivaldi, label: str, shot: Path, floor: float = TEXT_FLOOR, hovered: int | None = None) -> list[str]:
+def check_frame(v: Vivaldi, label: str, shot: Path, floor: float = TEXT_FLOOR, hovered: int | None = None,
+                blurred: bool = False) -> list[str]:
     failures = []
     m = v.measure()
     if "unified-ui" not in m["classes"] or "unified-ui-transparent" in m["classes"]:
@@ -148,34 +150,63 @@ def check_frame(v: Vivaldi, label: str, shot: Path, floor: float = TEXT_FLOOR, h
         if tab["rect"][2] < 4:
             continue  # pinned tabs have no title
         expected = BRIGHT if tab["active"] else DIM
-        if i != hovered and tab["color"] != expected:
+        if blurred:
+            # Vivaldi dims everything further when the window loses focus; inactive titles must still not be bright
+            if not tab["active"] and contrast.parse(tab["color"]) == contrast.parse(BRIGHT):
+                failures.append(f"{label}: inactive tab {i} title is white in an unfocused window")
+        elif i != hovered and tab["color"] != expected:
             failures.append(f"{label}: tab {i} title is {tab['color']}, expected {expected}")
         bg = contrast.worst_bg(hidden, tab["rect"], SCALE, tab["color"], text_png=shot)
         r = contrast.ratio(tab["color"], bg)
         if r < floor:
             failures.append(f"{label}: tab {i} title contrast {r:.2f} < {floor} on {bg}")
-    url = v.run_ui("""(() => { const e = document.querySelector('.UrlBar-UrlField');
-      if (!e) return null; const r = e.getBoundingClientRect(); return {rect: [r.x, r.y, r.width, r.height], color: getComputedStyle(e).color}; })()""")
-    if url:
-        bg = contrast.worst_bg(hidden, url["rect"], SCALE, url["color"], text_png=shot)
-        r = contrast.ratio(url["color"], bg)
+    # The visible URL is drawn by .UrlFragment-Wrapper spans (each with its own colour) over the input.
+    frags = v.run_ui("""(() => {
+      const spans = [...document.querySelectorAll('.UrlFragment-Wrapper span')].filter(s => s.textContent.trim());
+      const els = spans.length ? spans : [document.querySelector('.UrlBar-UrlField')].filter(Boolean);
+      return els.map(e => { const rg = document.createRange(); rg.selectNodeContents(e);
+        const r = (e.tagName === 'INPUT' ? e : rg).getBoundingClientRect();
+        return {rect: [r.x, r.y, r.width, r.height], color: getComputedStyle(e).color, text: e.textContent || e.value}; });
+    })()""")
+    for frag in frags or []:
+        if frag["rect"][2] < 2:
+            continue
+        bg = contrast.worst_bg(hidden, frag["rect"], SCALE, frag["color"], text_png=shot)
+        r = contrast.ratio(frag["color"], bg)
         if r < floor:
-            failures.append(f"{label}: address text contrast {r:.2f} < {floor} on {bg}")
+            failures.append(f"{label}: address text '{frag['text'][:30]}' contrast {r:.2f} < {floor} on {bg}")
     return failures
 
 
 # --- states ---------------------------------------------------------------------------------
-def _activate(v: Vivaldi, match: str) -> None:
-    v.run_ui(f"""new Promise(r => chrome.tabs.query({{}}, ts => {{ const t = ts.find(t => (t.url || t.pendingUrl || '').includes({json.dumps(match)}));
+def _activate(v: Vivaldi, *matches: str) -> None:
+    """Activate the first tab whose title or URL contains any of `matches` (case-insensitive)."""
+    match = matches[0]
+    ok = v.run_ui(f"""new Promise(r => chrome.tabs.query({{}}, ts => {{ const ms = {json.dumps([m.lower() for m in matches])};
+      const hit = t => ms.some(m => (t.title || '').toLowerCase().includes(m) || decodeURIComponent(t.url || t.pendingUrl || '').toLowerCase().includes(m));
+      const t = ts.find(hit);
       t ? chrome.tabs.update(t.id, {{active: true}}, () => r(true)) : r(false); }}))""")
+    if not ok:
+        raise RuntimeError(f"no tab matches {match!r}")
     time.sleep(0.6)
+
+
+def _close_dropdown(v: Vivaldi) -> None:
+    for _ in range(10):
+        if v.run_ui("!document.querySelector('.OmniDropdown')"):
+            return
+        _key(v, "Escape", "Escape", 27)
+        v.run_ui("document.activeElement && document.activeElement.blur && document.activeElement.blur(), true")
+        time.sleep(0.3)
+    raise RuntimeError("address dropdown would not close")
 
 
 def _reset(v: Vivaldi) -> None:
     _key(v, "Escape", "Escape", 27)
     v.run_ui("document.getElementById('browser').classList.remove('isblurred')")
     v.ui.send("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": 5, "y": 400})
-    _activate(v, "startpage")
+    _activate(v, "Start Page", "startpage")
+    _close_dropdown(v)
 
 
 def _open_panel(v: Vivaldi, name: str) -> None:
@@ -194,13 +225,13 @@ def _close_panel(v: Vivaldi, name: str) -> None:
 def state_setup(v: Vivaldi, state: str) -> dict:
     """Bring the browser into `state`; returns check options."""
     if state == "startpage":
-        _activate(v, "startpage")
+        _activate(v, "Start Page", "startpage")
     elif state == "dark-site":
-        _activate(v, "Dark%20site")
+        _activate(v, "Dark site")
     elif state == "light-site":
-        _activate(v, "Light%20site")
+        _activate(v, "Light site")
     elif state == "many-tabs":
-        _activate(v, "Dark%20site")
+        _activate(v, "Dark site")
     elif state == "hover":
         rect = v.run_ui("(() => { const t = [...document.querySelectorAll('.tab-position .tab')].find(t => !t.classList.contains('active') && t.querySelector('.title') && t.querySelector('.title').getBoundingClientRect().width > 20); const r = t.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()")
         v.ui.send("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": rect[0], "y": rect[1]})
@@ -210,9 +241,9 @@ def state_setup(v: Vivaldi, state: str) -> dict:
     elif state == "unfocused":
         v.run_ui("document.getElementById('browser').classList.add('isblurred')")
         time.sleep(0.4)
-        return {"floor": BLURRED_FLOOR}
+        return {"floor": BLURRED_FLOOR, "blurred": True}
     elif state == "settings":
-        _activate(v, "settings")
+        _activate(v, "Settings")
     elif state == "bookmarks-panel":
         _open_panel(v, "PanelBookmarks")
     elif state == "downloads-panel":
@@ -223,13 +254,16 @@ def state_setup(v: Vivaldi, state: str) -> dict:
         v.ui.send("Input.insertText", {"text": "exa"})
         time.sleep(1.0)
     elif state == "find":
-        _activate(v, "Light%20site")
-        _key(v, "f", "KeyF", 70, modifiers=4)  # Cmd+F
-        time.sleep(0.8)
+        _activate(v, "Light site")
+        macos.key(v.proc.pid, "f", ["command"])  # Vivaldi's shortcuts only react to real keystrokes
+        v._wait_js("[...document.querySelectorAll('.find-in-page-wrapper')].some(e => e.getBoundingClientRect().height > 10)", 5)
     return {}
 
 
 def state_teardown(v: Vivaldi, state: str) -> None:
+    if state == "find":
+        macos.key(v.proc.pid, "escape")
+        time.sleep(0.4)
     if state == "bookmarks-panel":
         _open_panel(v, "PanelBookmarks")
     elif state == "downloads-panel":
@@ -277,17 +311,21 @@ def _scroller(v: Vivaldi) -> None:
     v.run_ui("window.__vdScroll = document.querySelector('.vivaldi-settings .settings-content'), true")
 
 
+def section_selector(section: str) -> str:
+    return f'.vivaldi-settings .tree-item[data-id="{section}"] .tree-row'
+
+
 def audit_controls(v: Vivaldi, sections: list[str] | None = None, shots: Path | None = None) -> list[dict]:
     """Every checkbox, radio, slider and text label in each Settings section, scrolled through fully."""
     shots = Path(shots or REPO / "build" / "verify" / "controls")
     shots.mkdir(parents=True, exist_ok=True)
     v.open_tabs(["vivaldi://settings/general/"])
-    _activate(v, "settings")
+    _activate(v, "Settings")
     v._wait_js("!!document.querySelector('.vivaldi-settings .tree-item')", 15)
-    sections = sections or v.run_ui("[...document.querySelectorAll('.vivaldi-settings .tree-item')].map(e => e.dataset.id).filter(id => id !== 'all')")
+    sections = sections or v.run_ui("[...document.querySelectorAll('.vivaldi-settings .tree-item[aria-level=\"1\"]')].map(e => e.dataset.id).filter(id => id !== 'all')")
     results, seen = [], set()
     for sec in sections:
-        pt = _centre(v, f".vivaldi-settings .tree-item[data-id={sec}] .tree-row")
+        pt = _centre(v, section_selector(sec))
         _click(v, *pt)
         time.sleep(1.2)
         _scroller(v)
@@ -366,6 +404,29 @@ def audit_menus(v: Vivaldi, shots: Path | None = None) -> list[dict]:
     return out
 
 
+NATIVE_MENUS = {  # name -> element to right-click
+    "tab": ".tab-position .tab:not(.active)",
+    "page": ".webpageview.active",
+    "address": ".UrlBar-UrlField",
+    "panel-button": "button[data-name=PanelBookmarks]",
+}
+
+
+def native_menus(zip_path: Path, shots: Path) -> tuple[list[Path], list[str]]:
+    """Capture each native macOS menu over the theme, one fresh Vivaldi per menu (quitting closes it)."""
+    captured, pending = [], []
+    for name, selector in NATIVE_MENUS.items():
+        with Vivaldi() as v:
+            v.install_theme(zip_path)
+            prepare_tabs(v)
+            _activate(v, "Light site" if name == "page" else "Start Page")
+            try:
+                captured.append(macos.native_menu(v, selector, Path(shots) / f"native-{name}.png"))
+            except (macos.UnsafeCapture, macos.NotFrontmost) as e:
+                pending.append(f"native menu {name}: {e}")
+    return captured, pending
+
+
 # --- runner ---------------------------------------------------------------------------------
 def verify_theme(theme_dir: Path, quick: bool = False, out: Path | None = None) -> Report:
     theme_dir = Path(theme_dir)
@@ -386,7 +447,7 @@ def verify_theme(theme_dir: Path, quick: bool = False, out: Path | None = None) 
                     opts = state_setup(v, state)
                     v.screenshot(shot)
                     fails = check_frame(v, f"{layout} {size[0]}x{size[1]} {state}", shot,
-                                        opts.get("floor", TEXT_FLOOR), opts.get("hovered"))
+                                        opts.get("floor", TEXT_FLOOR), opts.get("hovered"), opts.get("blurred", False))
                     report.failures += fails
                     report.checks.append({"layout": layout, "size": size, "state": state, "failures": fails})
                     state_teardown(v, state)
@@ -403,7 +464,9 @@ def verify_theme(theme_dir: Path, quick: bool = False, out: Path | None = None) 
                 for it in m["items"]:
                     if not it["ok"]:
                         report.failures.append(f"menu {m['menu']}: '{it['text']}' contrast {it['ratio']}")
-            report.pending.append("native macOS menus: run tools.native_menus once Screen Recording is granted")
+    if not quick:
+        _, pending = native_menus(zip_path, out / "native")
+        report.pending += pending
     if not quick:
         scene = package.load_scene(theme_dir)
         report.failures += crop_check(scene.HERO_BOX, json.loads((REPO / "tools" / "startpage_busy.json").read_text()))

@@ -39,6 +39,8 @@ def test_build_settings_shared_values():
     s = package.build_settings(make_cfg(), {"Back": "back.svg"})
     assert set(s) == EXPORT_KEYS
     assert s["colorFg"] == "#828bb8"
+    # Color Contrast 6 lifts Vivaldi's derived URL text (colorFgIntense) to >= 4.5:1 while tab text stays #828bb8
+    assert s["contrast"] == 6
     assert s["colorPosition"] == "unified"
     assert s["colorHighlightBg"] == "#7aa2f7"
     assert s["buttons"] == {"Back": "back.svg"}

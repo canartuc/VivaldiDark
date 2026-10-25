@@ -17,7 +17,7 @@ SHARED = {
     "colorFg": "#828bb8",  # dim text for inactive tabs and UI (5.2:1 on colorBg)
     "colorPosition": "unified",
     "colorWindowBg": "#16161e",
-    "contrast": 0,
+    "contrast": 6,  # editor "Color Contrast" (-10..20): 6 lifts URL text to 5.3:1; 7+ also brightens tab text
     "dimBlurred": False,
     "engineVersion": 1,
     "preferSystemAccent": False,
