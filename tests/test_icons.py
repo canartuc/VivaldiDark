@@ -43,3 +43,47 @@ def test_lint_accepts_good():
 ])
 def test_lint_rejects(bad, fragment):
     assert any(fragment in p for p in icons.lint(bad))
+
+
+PIXEL_GOOD = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" fill="currentColor">'
+              '<rect x="10" y="12" width="8" height="2"/><rect x="12" y="10" width="2" height="2"/></svg>')
+
+
+def test_pixel_manifest_matches_outline():
+    assert set(icons.load_manifest("pixel")) == set(icons.load_manifest("outline"))
+
+
+def test_every_pixel_icon_lints_clean():
+    names = set(icons.load_manifest("pixel").values())
+    problems = {n: icons.lint((REPO / "icons" / "pixel" / n).read_text(), "pixel") for n in names}
+    assert {n: p for n, p in problems.items() if p} == {}
+
+
+def test_pixel_lint_accepts_good():
+    assert icons.lint(PIXEL_GOOD, "pixel") == []
+
+
+@pytest.mark.parametrize("bad, fragment", [
+    (PIXEL_GOOD.replace('<rect x="10"', '<rect stroke="currentColor" x="10"'), "stroke"),
+    (PIXEL_GOOD.replace('x="10"', 'x="11"'), "multiple of 2"),
+    (PIXEL_GOOD.replace("<rect x=\"12\" y=\"10\" width=\"2\" height=\"2\"/>", '<path d="M2 2h2"/>'), "path"),
+    (PIXEL_GOOD.replace('fill="currentColor"', 'fill="#00ff41"'), "currentColor"),
+])
+def test_pixel_lint_rejects(bad, fragment):
+    assert any(fragment in p for p in icons.lint(bad, "pixel"))
+
+
+def test_build_theme_picks_pixel_family(tmp_path):
+    import zipfile
+    from tools import package
+    theme = tmp_path / "themes" / "px"
+    theme.mkdir(parents=True)
+    (theme / "scene.py").write_text('HERO_BOX = (0.0, 0.0, 10.0, 10.0)\n'
+                                    'def build():\n    return \'<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160">'
+                                    '<rect width="3840" height="2160" fill="#080c09"/></svg>\'\n')
+    (theme / "theme.json").write_text(json.dumps(dict(slug="px", name="Px Fixture", id="00000000-0000-4000-8000-000000000001",
+                                                      highlight="#00ff41", radius=4, alpha=0.5, blur=4, webp_quality=90, icons="pixel")))
+    zp = package.build_theme(theme, REPO / "icons")
+    with zipfile.ZipFile(zp) as z:
+        back = z.read(json.loads(z.read("settings.json"))["buttons"]["Back"]).decode()
+    assert 'fill="currentColor"' in back and "<rect" in back and "stroke" not in back

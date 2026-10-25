@@ -101,7 +101,8 @@ def build_theme(theme_dir: Path, icons_dir: Path) -> Path:
         render_svg(svg_path, png_path)
         Image.open(png_path).convert("RGB").save(image, "WEBP", quality=cfg.webp_quality, method=6)
 
-    manifest = Path(icons_dir) / "manifest.json"
+    icons_dir = Path(icons_dir) / "pixel" if cfg.icons == "pixel" else Path(icons_dir)
+    manifest = icons_dir / "manifest.json"
     buttons = json.loads(manifest.read_text()) if manifest.exists() else {}
     settings = build_settings(cfg, buttons)
     settings_path = work / "settings.json"
