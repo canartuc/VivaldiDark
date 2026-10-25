@@ -102,3 +102,18 @@ def test_startpage_busy_rect_is_central(browser):
     assert 300 < w < 1600 and 200 < h < 1000
     assert abs((x + w / 2) - 1920 / 2) < 120  # centred in the window, give or take the side panel
     assert 40 < y < 400
+
+
+def test_custom_icon_follows_theme_color(browser, tmp_path):
+    icons = tmp_path / "icons"
+    icons.mkdir(exist_ok=True)
+    (icons / "back.svg").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" fill="none" stroke="currentColor" '
+        'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 8.5 11 14l5.5 5.5"/></svg>')
+    (icons / "manifest.json").write_text(json.dumps({"Back": "back.svg"}))
+    browser.install_theme(fixture_theme(tmp_path, 0.58))
+    icon = browser.run_ui("""(() => { const b = document.querySelector('button[data-name=Back]');
+      const svg = b.querySelector('svg'); const p = svg && svg.querySelector('path');
+      return {d: p && p.getAttribute('d'), color: getComputedStyle(svg).color, stroke: p && getComputedStyle(p).stroke}; })()""")
+    assert icon["d"] == "M16.5 8.5 11 14l5.5 5.5"
+    assert icon["stroke"] == icon["color"]
