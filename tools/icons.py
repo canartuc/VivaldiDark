@@ -80,8 +80,13 @@ def _lint_pixel(svg_text: str) -> list[str]:
                 problems.append(f"{tag} {k}: pixel icons have no stroke")
             if k == "fill" and v != "currentColor":
                 problems.append(f"{tag} fill={v}: must be currentColor")
-            if k in ("x", "y", "width", "height") and int(float(v)) % 2:
-                problems.append(f"{tag} {k}={v} is not a multiple of 2")
+            if k in BANNED or k == "transform":
+                problems.append(f"{tag} {k} is not allowed in pixel icons")
+            if k in ("x", "y", "width", "height"):
+                if not re.fullmatch(r"\d+", v):
+                    problems.append(f"{tag} {k}={v} is not a whole number")
+                elif int(v) % 2:
+                    problems.append(f"{tag} {k}={v} is not a multiple of 2")
     return problems
 
 

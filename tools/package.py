@@ -23,13 +23,17 @@ class ThemeConfig:
     radius: int
     alpha: float
     blur: int
-    webp_quality: int
+    webp_quality: int | None = None  # lossy quality for vector scenes; pixel scenes are always lossless
     bg: str = DEFAULT_COLOURS["bg"]
     fg: str = DEFAULT_COLOURS["fg"]
     accent: str = DEFAULT_COLOURS["accent"]
     window: str = DEFAULT_COLOURS["window"]
     contrast: int = DEFAULT_COLOURS["contrast"]
     icons: str = "outline"
+
+
+ICON_FAMILIES = ("outline", "pixel")
+ZIP_DATE = (1980, 1, 1, 0, 0, 0)  # fixed, so a rebuild with the same inputs gives the same bytes
 
 
 def load_config(theme_dir: Path) -> ThemeConfig:
@@ -81,6 +85,17 @@ def validate(settings: dict, image: Path, zip_path: Path) -> list[str]:
     return problems
 
 
+def check_config(cfg: ThemeConfig, raster: bool) -> list[str]:
+    problems = []
+    if cfg.icons not in ICON_FAMILIES:
+        problems.append(f"icons {cfg.icons!r} must be one of {ICON_FAMILIES}")
+    if raster and cfg.webp_quality is not None:
+        problems.append("webp_quality has no effect on a pixel scene (always lossless); remove it")
+    if not raster and cfg.webp_quality is None:
+        problems.append("webp_quality is required for a vector scene")
+    return problems
+
+
 def zip_name(cfg: ThemeConfig) -> str:
     return cfg.name.replace(" ", "-") + ".zip"
 
@@ -92,8 +107,12 @@ def build_theme(theme_dir: Path, icons_dir: Path) -> Path:
     work.mkdir(parents=True, exist_ok=True)
 
     scene = load_scene(theme_dir)
+    raster = hasattr(scene, "build_image")
+    problems = check_config(cfg, raster)
+    if problems:
+        raise ValueError(f"{cfg.name}: " + "; ".join(problems))
     image = theme_dir / "background.webp"
-    if hasattr(scene, "build_image"):  # raster (pixel-art) scene: lossless keeps every pixel edge hard
+    if raster:  # raster (pixel-art) scene: lossless keeps every pixel edge hard
         scene.build_image().convert("RGB").save(image, "WEBP", lossless=True, method=6)
     else:
         svg_path, png_path = work / "art.svg", work / "art.png"
@@ -103,17 +122,20 @@ def build_theme(theme_dir: Path, icons_dir: Path) -> Path:
 
     icons_dir = Path(icons_dir) / "pixel" if cfg.icons == "pixel" else Path(icons_dir)
     manifest = icons_dir / "manifest.json"
-    buttons = json.loads(manifest.read_text()) if manifest.exists() else {}
+    if not manifest.exists():
+        raise ValueError(f"{cfg.name}: no icon manifest at {manifest}")
+    buttons = json.loads(manifest.read_text())
     settings = build_settings(cfg, buttons)
     settings_path = work / "settings.json"
     settings_path.write_text(json.dumps(settings, indent=3) + "\n")
 
     zip_path = theme_dir / zip_name(cfg)
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
-        z.write(settings_path, "settings.json")
-        z.write(image, "background.webp")
-        for f in sorted(set(buttons.values())):
-            z.write(Path(icons_dir) / f, f)
+        for src, name in [(settings_path, "settings.json"), (image, "background.webp")] + [
+                (icons_dir / f, f) for f in sorted(set(buttons.values()))]:
+            info = zipfile.ZipInfo(name, ZIP_DATE)
+            info.compress_type, info.external_attr = zipfile.ZIP_DEFLATED, 0o644 << 16
+            z.writestr(info, src.read_bytes())
 
     problems = validate(settings, image, zip_path)
     if problems:

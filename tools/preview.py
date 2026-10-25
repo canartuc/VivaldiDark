@@ -1,7 +1,9 @@
 """Gallery previews: the verified Start Page at 1920x1080, with personal data hidden.
 
 Previews are public. Vivaldi's Weather widget shows the town it geolocates from the IP address, so it is hidden
-(visibility only, the layout stays as verified) and the capture is refused if it still renders.
+(visibility only, the layout stays as verified) and the capture is refused if it still renders. Besides its class,
+any Start Page widget showing a temperature (a number and a degree sign) counts as weather, whatever its class or
+language.
 """
 import sys
 import time
@@ -16,6 +18,9 @@ from tools.vivaldi import Vivaldi
 REPO = Path(__file__).resolve().parent.parent
 SIZE = (1920, 1080)
 PRIVATE = [".Dashboard-WeatherWidget"]
+TEMPERATURE = r"\d\s*°"
+# Start Page widgets that show a temperature, under any class name
+_WEATHERLIKE = f"[...document.querySelectorAll('.Dashboard .dashboard-widget')].filter(w => /{TEMPERATURE}/.test(w.textContent))"
 
 
 class PrivacyError(RuntimeError):
@@ -25,14 +30,15 @@ class PrivacyError(RuntimeError):
 def hide_private(v: Vivaldi) -> None:
     css = ",".join(PRIVATE) + "{visibility:hidden !important}"
     v.run_ui(f"""(() => {{ const s = document.createElement('style'); s.textContent = {css!r};
-      document.head.appendChild(s); return true; }})()""")
+      document.head.appendChild(s); {_WEATHERLIKE}.forEach(w => w.style.setProperty('visibility', 'hidden', 'important'));
+      return true; }})()""")
     time.sleep(0.3)
 
 
 def assert_private(v: Vivaldi) -> None:
     # also by the widget's own labels, in case Vivaldi renames the class
     shown = v.run_ui(f"""(() => {{ const vis = e => e.checkVisibility({{visibilityProperty: true}});
-      return [...document.querySelectorAll({",".join(PRIVATE)!r})].some(vis)
+      return [...document.querySelectorAll({",".join(PRIVATE)!r})].some(vis) || {_WEATHERLIKE}.some(vis)
         || [...document.querySelectorAll('.Dashboard *')].some(e => e.children.length === 0
              && /Feels like|Forecast from/.test(e.textContent) && vis(e)); }})()""")
     if shown:

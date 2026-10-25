@@ -68,6 +68,10 @@ def test_pixel_lint_accepts_good():
     (PIXEL_GOOD.replace('x="10"', 'x="11"'), "multiple of 2"),
     (PIXEL_GOOD.replace("<rect x=\"12\" y=\"10\" width=\"2\" height=\"2\"/>", '<path d="M2 2h2"/>'), "path"),
     (PIXEL_GOOD.replace('fill="currentColor"', 'fill="#00ff41"'), "currentColor"),
+    (PIXEL_GOOD.replace('x="10"', 'x="10.5"'), "whole number"),
+    (PIXEL_GOOD.replace('<rect x="10"', '<rect style="fill:red" x="10"'), "not allowed"),
+    (PIXEL_GOOD.replace('<rect x="10"', '<rect transform="scale(1.3)" x="10"'), "not allowed"),
+    (PIXEL_GOOD.replace('<rect x="10"', '<rect class="a" x="10"'), "not allowed"),
 ])
 def test_pixel_lint_rejects(bad, fragment):
     assert any(fragment in p for p in icons.lint(bad, "pixel"))

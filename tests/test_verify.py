@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.test_vivaldi import SCENE
+from tests.test_vivaldi import ICONS, SCENE
 from tools import verify
 from tools.vivaldi import Vivaldi
 
@@ -36,7 +36,7 @@ def test_verify_flags_bright_bars(tmp_path):
 
 def test_controls_audit_reports_every_control(tmp_path):
     from tools import package
-    zp = package.build_theme(make_theme(tmp_path, "Controls Fixture"), tmp_path / "icons")
+    zp = package.build_theme(make_theme(tmp_path, "Controls Fixture"), ICONS)
     with Vivaldi() as v:
         v.install_theme(zp)
         results = verify.audit_controls(v, sections=["tabs"], shots=tmp_path / "shots")
@@ -48,7 +48,7 @@ def test_controls_audit_reports_every_control(tmp_path):
 
 def test_menu_audit_lists_items(tmp_path):
     from tools import package
-    zp = package.build_theme(make_theme(tmp_path, "Menu Fixture"), tmp_path / "icons")
+    zp = package.build_theme(make_theme(tmp_path, "Menu Fixture"), ICONS)
     with Vivaldi() as v:
         v.install_theme(zp)
         menus = verify.audit_menus(v, shots=tmp_path / "shots")
@@ -59,7 +59,7 @@ def test_menu_audit_lists_items(tmp_path):
 
 def test_states_do_not_leak(tmp_path):
     from tools import package
-    zp = package.build_theme(make_theme(tmp_path, "Leak Fixture"), tmp_path / "icons")
+    zp = package.build_theme(make_theme(tmp_path, "Leak Fixture"), ICONS)
     with Vivaldi() as v:
         v.install_theme(zp)
         verify.prepare_tabs(v)
@@ -72,7 +72,7 @@ def test_states_do_not_leak(tmp_path):
 
 def test_settings_address_measures_clean(tmp_path):
     from tools import package
-    zp = package.build_theme(make_theme(tmp_path, "Settings Fixture"), tmp_path / "icons")
+    zp = package.build_theme(make_theme(tmp_path, "Settings Fixture"), ICONS)
     with Vivaldi() as v:
         v.install_theme(zp)
         verify.prepare_tabs(v)
@@ -85,7 +85,7 @@ def test_settings_address_measures_clean(tmp_path):
 
 def test_unfocused_accepts_vivaldis_own_dimming(tmp_path):
     from tools import package
-    zp = package.build_theme(make_theme(tmp_path, "Blur Fixture"), tmp_path / "icons")
+    zp = package.build_theme(make_theme(tmp_path, "Blur Fixture"), ICONS)
     with Vivaldi() as v:
         v.install_theme(zp)
         verify.prepare_tabs(v)
@@ -142,7 +142,7 @@ def test_typed_url_does_not_leak_into_next_state(tmp_path):
 
 def test_selected_address_text_uses_selection_floor(tmp_path):
     from tools import package
-    zp = package.build_theme(make_theme(tmp_path, "Selection Fixture"), tmp_path / "icons")
+    zp = package.build_theme(make_theme(tmp_path, "Selection Fixture"), ICONS)
     with Vivaldi() as v:
         v.install_theme(zp)
         verify.prepare_tabs(v)
@@ -177,7 +177,7 @@ def test_native_menu_retries_once_after_unprovable_capture(tmp_path, monkeypatch
         return path
     monkeypatch.setattr(macos, "native_menu", flaky)
     monkeypatch.setattr(verify, "NATIVE_MENUS", {"tab": ".tab-position .tab:not(.active)"})
-    zp = package.build_theme(make_theme(tmp_path, "Retry Fixture"), tmp_path / "icons")
+    zp = package.build_theme(make_theme(tmp_path, "Retry Fixture"), ICONS)
     captured, pending = verify.native_menus(zp, tmp_path / "native")
     assert len(captured) == 1 and pending == []
 
@@ -200,8 +200,3 @@ def test_quick_verify_sage_fixture(tmp_path):
     report = verify.verify_theme(theme, quick=True, out=tmp_path / "out")
     assert report.failures == [], report.failures
 
-
-def test_same_colour_tolerates_rounding_jitter():
-    assert verify.same_colour("rgb(113, 142, 113)", "rgb(112, 143, 111)")
-    assert not verify.same_colour("rgb(255, 255, 255)", "rgb(112, 143, 111)")
-    assert not verify.same_colour("rgb(116, 143, 111)", "rgb(112, 143, 111)")

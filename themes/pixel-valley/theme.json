@@ -6,7 +6,6 @@
  "radius": 4,
  "alpha": 0.5,
  "blur": 4,
- "webp_quality": 95,
  "bg": "#070d08",
  "fg": "#36a95c",
  "accent": "#040805",

@@ -114,6 +114,13 @@ def same_colour(a: str, b: str, tol: int = 2) -> bool:
     return all(abs(x - y) <= tol for x, y in zip(contrast.parse(a)[:3], contrast.parse(b)[:3]))
 
 
+def dim_problem(dim: str) -> str | None:
+    """The dim (inactive tab) colour comes from the live --colorFg; it must never be white."""
+    if same_colour(dim, BRIGHT):
+        return f"dim tab colour {dim} is white; inactive tabs would look focused"
+    return None
+
+
 # --- live helpers ---------------------------------------------------------------------------
 def _key(v: Vivaldi, key: str, code: str, vk: int, modifiers: int = 0) -> None:
     """Non-character keys (and shortcuts) must be rawKeyDown for Chromium to act on them."""
@@ -164,6 +171,8 @@ def check_frame(v: Vivaldi, label: str, shot: Path, floor: float = TEXT_FLOOR, h
         failures.append(f"{label}: browser is not in opaque unified mode ({m['classes']})")
     hidden = _hidden_text_shot(v, shot.with_name(shot.stem + ".bg.png"))
     dim = expected_dim(v)
+    if (p := dim_problem(dim)):
+        failures.append(f"{label}: {p}")
     for i, tab in enumerate(m["tabs"]):
         if tab["rect"][2] < 4:
             continue  # pinned tabs have no title

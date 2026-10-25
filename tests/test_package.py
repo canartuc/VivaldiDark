@@ -161,9 +161,68 @@ def test_pixel_background_is_lossless_and_small(tmp_path):
     theme = tmp_path / "themes" / "raster"
     theme.mkdir(parents=True)
     (theme / "scene.py").write_text(RASTER_SCENE)
-    (theme / "theme.json").write_text(json.dumps({**make_cfg(slug="raster", name="Raster Fixture").__dict__}))
-    zp = package.build_theme(theme, tmp_path / "icons")
+    (theme / "theme.json").write_text(json.dumps({**make_cfg(slug="raster", name="Raster Fixture", webp_quality=None).__dict__}))
+    zp = package.build_theme(theme, REPO / "icons")
     expected = package.load_scene(theme).build_image().convert("RGB")
     got = Image.open(theme / "background.webp").convert("RGB")
     assert list(got.get_flattened_data()) == list(expected.get_flattened_data())
     assert zp.stat().st_size < 8 * 1024 * 1024
+
+
+# canonical (sorted-key) settings.json of the wave-1 zips as released before wave 2 (commit 0ea48da)
+WAVE1_SETTINGS_SHA256 = {
+    "shibuya-nocturne": "8511f20111c4c2f5207c1b2a36bf4b0a985c9e825f75f06a338149e992ad62ab",
+    "neon-fuji": "2fd7ae16ab85a5d8c66ae510d8dba1b47ab7ead9878a2c7d7ef8cb1b5bd17bc2",
+    "silk-nocturne": "503383c5b04e46d0d64eb35c08723a73dfd1613efa6e7d5d219eb4be4c32bc6e",
+}
+
+
+@pytest.mark.parametrize("slug", WAVE1)
+def test_wave1_settings_match_the_released_baseline(slug):
+    import hashlib
+    theme = REPO / "themes" / slug
+    with zipfile.ZipFile(theme / package.zip_name(package.load_config(theme))) as z:
+        committed = json.loads(z.read("settings.json"))
+    assert hashlib.sha256(json.dumps(committed, sort_keys=True).encode()).hexdigest() == WAVE1_SETTINGS_SHA256[slug]
+
+
+def test_check_config_accepts_good():
+    assert package.check_config(make_cfg(), raster=False) == []
+    assert package.check_config(make_cfg(webp_quality=None, icons="pixel"), raster=True) == []
+
+
+@pytest.mark.parametrize("cfg, raster, fragment", [
+    (make_cfg(icons="pixels"), False, "icons"),
+    (make_cfg(), True, "webp_quality"),
+    (make_cfg(webp_quality=None), False, "webp_quality"),
+])
+def test_check_config_rejects(cfg, raster, fragment):
+    assert any(fragment in p for p in package.check_config(cfg, raster))
+
+
+@pytest.mark.parametrize("slug", sorted(p.name for p in (REPO / "themes").iterdir() if (p / "theme.json").exists()))
+def test_shipped_configs_pass_check(slug):
+    theme = REPO / "themes" / slug
+    raster = hasattr(package.load_scene(theme), "build_image")
+    assert package.check_config(package.load_config(theme), raster) == []
+
+
+def _raster_theme(tmp_path):
+    theme = tmp_path / "themes" / "raster"
+    theme.mkdir(parents=True)
+    (theme / "scene.py").write_text(RASTER_SCENE)
+    (theme / "theme.json").write_text(json.dumps({**make_cfg(slug="raster", name="Raster Fixture", webp_quality=None).__dict__}))
+    return theme
+
+
+def test_build_theme_rejects_missing_manifest(tmp_path):
+    with pytest.raises(ValueError, match="manifest"):
+        package.build_theme(_raster_theme(tmp_path), tmp_path / "no-icons")
+
+
+def test_build_theme_is_byte_for_byte_repeatable(tmp_path):
+    import time
+    theme = _raster_theme(tmp_path)
+    first = package.build_theme(theme, REPO / "icons").read_bytes()
+    time.sleep(2.1)  # zip timestamps have 2 s resolution
+    assert package.build_theme(theme, REPO / "icons").read_bytes() == first

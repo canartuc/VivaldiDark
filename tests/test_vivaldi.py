@@ -8,6 +8,8 @@ import pytest
 from tools import package
 from tools.vivaldi import Vivaldi
 
+ICONS = Path(__file__).resolve().parent.parent / "icons"
+
 pytestmark = pytest.mark.vivaldi
 
 DIM = "rgb(135, 144, 189)"  # #828bb8 as Vivaldi renders it at Color Contrast 7
@@ -33,8 +35,7 @@ def fixture_theme(tmp_path: Path, alpha: float = 0.5, check: bool = True) -> Pat
     (theme / "theme.json").write_text(json.dumps(dict(
         slug=theme.name, name=f"Fixture {alpha}", id=f"00000000-0000-4000-8000-{int(alpha * 100):012d}",
         highlight="#7aa2f7", radius=8, alpha=alpha, blur=4, webp_quality=90)))
-    icons = tmp_path / "icons"
-    icons.mkdir(exist_ok=True)
+    icons = ICONS  # every real theme ships icons; builds refuse a missing manifest
     if check:
         return package.build_theme(theme, icons)
     original = package.validate
