@@ -1,0 +1,16 @@
+{
+ "slug": "istanbul-nocturne",
+ "name": "Istanbul Nocturne",
+ "id": "a33116ee-1623-4209-9ddb-0ea40411001f",
+ "highlight": "#5fd0c8",
+ "radius": 10,
+ "alpha": 0.5,
+ "blur": 4,
+ "webp_quality": 95,
+ "bg": "#0b1e26",
+ "fg": "#8fb0b4",
+ "accent": "#051016",
+ "window": "#051016",
+ "contrast": 7,
+ "icons": "outline"
+}

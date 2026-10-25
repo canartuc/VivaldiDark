@@ -9,7 +9,7 @@ from tools.svg import H, W
 from tools.verify import crop_check
 
 REPO = Path(__file__).resolve().parent.parent
-THEMES = ["shibuya-nocturne", "neon-fuji", "silk-nocturne", "paris-nocturne", "terminal-city", "pixel-valley", "8-bit-cosmos"]
+THEMES = ["shibuya-nocturne", "neon-fuji", "silk-nocturne", "paris-nocturne", "istanbul-nocturne", "terminal-city", "pixel-valley", "8-bit-cosmos"]
 BUSY = json.loads((REPO / "tools" / "startpage_busy.json").read_text())
 
 

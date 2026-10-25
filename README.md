@@ -1,7 +1,7 @@
 <h1 align="center">VivaldiDark</h1>
 
 <p align="center">
-  <b>Seven premium dark themes for the Vivaldi browser.</b><br>
+  <b>Eight premium dark themes for the Vivaldi browser.</b><br>
   Original 4K art that flows behind the tab bar, address bar, panel and status bar,<br>
   with colours tuned so every label, menu and setting stays readable over it.
 </p>
@@ -79,6 +79,17 @@ windows line the river, and lamps glow along an old stone bridge.
 **Palette** Nuit de Paris · **Accent** `#5ea8f0` · **Icons** outline · **Corners** 10 px ·
 [**Download**](https://github.com/canartuc/VivaldiDark/raw/main/themes/paris-nocturne/Paris-Nocturne.zip)
 
+### Istanbul Nocturne
+
+![Istanbul Nocturne](themes/istanbul-nocturne/preview.jpg)
+
+The Bosphorus at night from the Asian shore: Maiden's Tower on its islet with the suspension bridge behind it,
+a full moon, gulls and a passing ferry. Two street cats keep watch from the waterfront railing beside a tulip
+glass of tea.
+
+**Palette** Bosphorus turquoise · **Accent** `#5fd0c8` · **Icons** outline · **Corners** 10 px ·
+[**Download**](https://github.com/canartuc/VivaldiDark/raw/main/themes/istanbul-nocturne/Istanbul-Nocturne.zip)
+
 ### Terminal City
 
 ![Terminal City](themes/terminal-city/preview.jpg)
@@ -113,7 +124,7 @@ drifting past.
 Each theme replaces all 79 toolbar buttons with its own icon family. The icons are drawn in `currentColor`, so they
 follow the theme's text colour.
 
-**Outline** ([`icons/`](icons)), used by Shibuya Nocturne, Neon Fuji, Silk Nocturne and Paris Nocturne:
+**Outline** ([`icons/`](icons)), used by Shibuya Nocturne, Neon Fuji, Silk Nocturne, Paris Nocturne and Istanbul Nocturne:
 
 ![Outline icons](icons/preview.png)
 

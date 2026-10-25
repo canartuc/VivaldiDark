@@ -10,6 +10,7 @@ THEMES = {  # slug: (name, Tokyo Night palette?)
     "neon-fuji": ("Neon Fuji", True),
     "silk-nocturne": ("Silk Nocturne", True),
     "paris-nocturne": ("Paris Nocturne", False),
+    "istanbul-nocturne": ("Istanbul Nocturne", False),
     "terminal-city": ("Terminal City", False),
     "pixel-valley": ("Pixel Valley", False),
     "8-bit-cosmos": ("8-Bit Cosmos", False),
