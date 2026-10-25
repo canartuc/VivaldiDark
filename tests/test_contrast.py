@@ -106,3 +106,11 @@ def test_section_selector_quotes_numeric_ids():
     from tools.verify import section_selector
     assert section_selector("293") == '.vivaldi-settings .tree-item[data-id="293"] .tree-row'
     assert section_selector("tabs") == '.vivaldi-settings .tree-item[data-id="tabs"] .tree-row'
+
+
+def test_unchecked_control_uses_documented_floor(tmp_path):
+    from tools.verify import UNCHECKED_FLOOR, analyze_control
+    assert UNCHECKED_FLOOR == 2.2
+    # a soft grey box, like Vivaldi draws unchecked controls: ~2.5:1 against the page
+    r = analyze_control(_control_png(tmp_path, (84, 86, 108), (84, 86, 108)), [12, 12, 16, 16], 2, checked=False)
+    assert 2.2 <= r["ident"] < 3 and r["ok"]

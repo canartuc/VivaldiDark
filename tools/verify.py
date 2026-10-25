@@ -22,12 +22,15 @@ STATES = ["startpage", "dark-site", "light-site", "many-tabs", "hover", "unfocus
           "bookmarks-panel", "address-dropdown", "find", "downloads-panel"]
 QUICK = dict(sizes=[(1920, 1080)], layouts=["tabs-top"], states=["startpage", "many-tabs"])
 SCALE = 2  # every screenshot is taken at device scale 2
-DIM = "rgb(130, 139, 184)"
+DIM = "rgb(135, 144, 189)"  # #828bb8 as Vivaldi renders it at Color Contrast 7
 BRIGHT = "rgb(255, 255, 255)"
 TEXT_FLOOR, UI_FLOOR, BLURRED_FLOOR = 4.5, 3.0, 3.0
 # Selected text in a focused address field: Chromium paints the selection from the highlight colour
 # at ~50% and keeps the dim text colour (owner-accepted platform limitation). Guard against regressions.
 SELECTION_FLOOR = 1.6
+# Unchecked checkbox/radio: Vivaldi draws a soft filled shape a theme cannot restyle (its own Dark
+# theme scores 1.47:1). Owner-accepted documented floor; checked controls keep the 3:1 rule.
+UNCHECKED_FLOOR = 2.2
 
 DARK_PAGE = ("data:text/html,<title>Dark site</title><body style='margin:0;background:%230d1117;color:%23c9d1d9;"
              "font:16px system-ui;padding:40px'><h1>Dark site</h1><p>Body text on a dark page.</p>")
@@ -97,7 +100,7 @@ def analyze_control(png: Path, rect, scale: float, checked: bool) -> dict:
     inner = _colors(img, (x, y, x + w, y + h), 0.03)
     ident = max(contrast.ratio(c, bg) for c in inner)
     result = {"bg": bg, "ident": round(ident, 2)}
-    ok = ident >= UI_FLOOR
+    ok = ident >= (UI_FLOOR if checked else UNCHECKED_FLOOR)
     if checked:
         fill = inner[0]
         mark = max(contrast.ratio(c, fill) for c in inner)

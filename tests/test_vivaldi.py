@@ -10,7 +10,7 @@ from tools.vivaldi import Vivaldi
 
 pytestmark = pytest.mark.vivaldi
 
-DIM = "rgb(130, 139, 184)"  # #828bb8
+DIM = "rgb(135, 144, 189)"  # #828bb8 as Vivaldi renders it at Color Contrast 7
 BRIGHT = "rgb(255, 255, 255)"
 URLS = ["https://example.com/", "https://example.org/", "https://example.net/"]
 

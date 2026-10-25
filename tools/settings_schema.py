@@ -17,7 +17,7 @@ SHARED = {
     "colorFg": "#828bb8",  # dim text for inactive tabs and UI (5.2:1 on colorBg)
     "colorPosition": "unified",
     "colorWindowBg": "#16161e",
-    "contrast": 6,  # editor "Color Contrast" (-10..20): 6 lifts URL text to 5.3:1; 7+ also brightens tab text
+    "contrast": 7,  # editor "Color Contrast" (-10..20): Vivaldi lifts derived text (URL, faded) to >= 4.5:1
     "dimBlurred": False,
     "engineVersion": 1,
     "preferSystemAccent": False,
