@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-VivaldiDark is a collection of dark Vivaldi browser themes inspired by Tokyo Night (Enkia, MIT). Each theme is a zip of `settings.json`, one background image and the shared toolbar icons. The repo is public: never commit `docs/superpowers/`, `.superpowers/` or `.playwright-mcp/` (all git-ignored).
+VivaldiDark is a collection of seven dark Vivaldi browser themes. Each theme is a zip of `settings.json`, one background image and one toolbar icon family (`icons/` outline or `icons/pixel/`, chosen by `theme.json`). A theme's `scene.py` draws its art: `build()` returns SVG, and pixel scenes use `build_image()` (480×270 upscaled 8×, lossless WebP). Three themes use Tokyo Night colours (Enkia, MIT); the pixel themes use the canartuc.com palette.
+
+Previews (`themes/<slug>/preview.jpg`) are public: they must not show the owner's location or other personal data (hide the Start Page Weather widget). Never name the Paris tower ("E…l" is checked by `tests/test_docs.py`) and never draw its lights. The repo is public: never commit `docs/superpowers/`, `.superpowers/` or `.playwright-mcp/` (all git-ignored).
 
 ## Commands
 
