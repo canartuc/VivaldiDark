@@ -312,11 +312,13 @@ SETTINGS_ROOT = "[...document.querySelectorAll('.vivaldi-settings')].find(e => e
 
 CONTROLS_JS = """(() => {
   const root = """ + SETTINGS_ROOT + """;
-  const vis = r => r.width > 0 && r.height > 0 && r.y >= 0 && r.bottom <= innerHeight && r.x >= 0 && r.right <= innerWidth;
+  // visible = fully inside the Settings scroll area (not under the status bar or the sticky header)
+  const area = root.querySelector('.settings-content').getBoundingClientRect();
+  const vis = r => r.width > 0 && r.height > 0 && r.y >= area.y && r.bottom <= area.bottom && r.x >= area.x && r.right <= area.right;
   const out = [];
   root.querySelectorAll('input[type=checkbox], input[type=radio], input[type=range]').forEach(e => {
     const r = e.getBoundingClientRect(); if (!vis(r)) return;
-    out.push({kind: e.type === 'range' ? 'slider' : e.type, checked: !!e.checked, rect: [r.x, r.y, r.width, r.height],
+    out.push({kind: e.type === 'range' ? 'slider' : e.type, checked: !!e.checked, disabled: e.matches(':disabled'), rect: [r.x, r.y, r.width, r.height],
               label: (e.closest('label') || e.parentElement).innerText.trim().slice(0, 60)});
   });
   root.querySelectorAll('label > span, .setting-group h2, .setting-group h3, .setting-single > p, .selectbox, input[type=text], input[type=number], input[type=search]').forEach(e => {
@@ -369,6 +371,9 @@ def audit_controls(v: Vivaldi, sections: list[str] | None = None, shots: Path | 
                 if c["kind"] == "text":
                     r = contrast.ratio(c["color"], c["bgColor"])
                     res = {"ident": round(r, 2), "ok": r >= TEXT_FLOOR}
+                elif c.get("disabled"):
+                    # deliberately dimmed by Vivaldi to say "unavailable"; WCAG exempts disabled controls
+                    res = {**analyze_control(shot, c["rect"], SCALE, c["checked"]), "ok": True}
                 else:
                     res = analyze_control(shot, c["rect"], SCALE, c["checked"])
                 results.append({**c, **res, "section": sec, "shot": shot.name})

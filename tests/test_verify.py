@@ -180,3 +180,14 @@ def test_native_menu_retries_once_after_unprovable_capture(tmp_path, monkeypatch
     zp = package.build_theme(make_theme(tmp_path, "Retry Fixture"), tmp_path / "icons")
     captured, pending = verify.native_menus(zp, tmp_path / "native")
     assert len(captured) == 1 and pending == []
+
+
+def test_controls_audit_skips_hidden_and_exempts_disabled(tmp_path):
+    with Vivaldi() as v:
+        verify.emulate(v, (1920, 1080))
+        results = verify.audit_controls(v, sections=["tabs"], shots=tmp_path / "shots")
+    controls = [r for r in results if r["kind"] != "text"]
+    flat = [r["label"] for r in controls if not r.get("disabled") and r["ident"] < 1.05]
+    assert flat == [], f"measured under something that covers them: {flat}"
+    disabled = [r for r in controls if r.get("disabled")]
+    assert disabled and all(r["ok"] for r in disabled)

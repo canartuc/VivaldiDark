@@ -31,6 +31,22 @@ def match_ratio(capture_png: Path, reference_png: Path, tol: int = 14) -> float:
     return 1 - changed / (ref.size[0] * ref.size[1])
 
 
+def change_boxes(before_png: Path, after_png: Path, tol: int = 14, cell: int = 64) -> list:
+    """Coarse grid cells (x0, y0, x1, y1) that changed — coordinates only, never pixels."""
+    a = Image.open(before_png).convert("RGB")
+    b = Image.open(after_png).convert("RGB").resize(a.size)
+    mask = ImageChops.difference(a, b).convert("L").point(lambda d: 255 if d > tol else 0)
+    cells = []
+    for y in range(0, a.size[1], cell):
+        for x in range(0, a.size[0], cell):
+            if mask.crop((x, y, x + cell, y + cell)).getbbox():
+                cells.append((x, y))
+    if not cells:
+        return []
+    xs, ys = [c[0] for c in cells], [c[1] for c in cells]
+    return [(min(xs), min(ys), max(xs) + cell, max(ys) + cell), f"{len(cells)} cells"]
+
+
 def change_is_local(before_png: Path, after_png: Path, point, max_share: float, tol: int = 14) -> bool:
     """True when everything that changed sits in one box that starts at `point` (the menu) and is small."""
     a = Image.open(before_png).convert("RGB")
@@ -161,8 +177,11 @@ def native_menu(v, selector: str, path: Path) -> Path:
     shot = capture(path, (x, y, w, h))
     scale = Image.open(shot).size[0] / w
     local = change_is_local(before, shot, (pt[0] * scale, pt[1] * scale), max_share=0.35)
-    before.unlink()
     if not local:
+        boxes = change_boxes(before, shot)
+        before.unlink()
         shot.unlink()
-        raise UnsafeCapture("changes outside the menu area; capture deleted unseen")
+        raise UnsafeCapture(f"changes outside the menu area (click {[round(c * scale) for c in pt]}, changed regions {boxes}); "
+                            "capture deleted unseen")
+    before.unlink()
     return shot
