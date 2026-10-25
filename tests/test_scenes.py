@@ -39,7 +39,6 @@ def test_theme_config(slug):
 
 
 ZONES = {"top": (0, 0, 3840, 420), "left": (0, 0, 950, 2160), "bottom": (0, 1840, 3840, 2160)}
-MAX_LUMINANCE = 0.03  # art at or below this keeps #828bb8 text >= 4.5:1 after Vivaldi's 50% bar blend
 
 
 @pytest.mark.parametrize("slug", THEMES)
@@ -54,4 +53,6 @@ def test_bar_zones_are_dark(slug, tmp_path):
     for name, (x0, y0, x1, y1) in ZONES.items():
         region = img.crop((x0 // 2, y0 // 2, x1 // 2, y1 // 2))
         worst = max(set(region.get_flattened_data()), key=contrast.luminance)
-        assert contrast.luminance(worst) <= MAX_LUMINANCE, f"{name} zone has {worst}"
+        cfg = package.load_config(REPO / "themes" / slug)
+        limit = contrast.zone_limit(cfg.fg, cfg.bg, cfg.alpha)  # keeps this theme's tab text >= 4.5:1
+        assert contrast.luminance(worst) <= limit, f"{name} zone has {worst} (limit {limit:.3f})"

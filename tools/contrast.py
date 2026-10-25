@@ -45,3 +45,21 @@ def worst_bg(png: Path, rect, scale: float, fg: str, text_png: Path | None = Non
         pixels = under or pixels
     fg_rgb = parse(fg)
     return min(set(pixels), key=lambda px: ratio(fg_rgb, px))
+
+
+def zone_limit(fg: str, bar_bg: str, alpha: float, target: float = 4.5) -> float:
+    """Brightest art luminance under a bar that still keeps `fg` text at `target` contrast.
+
+    Vivaldi paints bars as `alpha * bar_bg + (1 - alpha) * art` (per sRGB channel); art is modelled
+    as a grey. Bisection over the grey level.
+    """
+    bar = parse(bar_bg)
+    lo, hi = 0.0, 255.0
+    for _ in range(40):
+        g = (lo + hi) / 2
+        blended = tuple(round(alpha * c + (1 - alpha) * g) for c in bar)
+        if ratio(fg, blended) >= target:
+            lo = g
+        else:
+            hi = g
+    return luminance((round(lo),) * 3)

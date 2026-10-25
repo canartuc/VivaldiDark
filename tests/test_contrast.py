@@ -114,3 +114,11 @@ def test_unchecked_control_uses_documented_floor(tmp_path):
     # a soft grey box, like Vivaldi draws unchecked controls: ~2.5:1 against the page
     r = analyze_control(_control_png(tmp_path, (84, 86, 108), (84, 86, 108)), [12, 12, 16, 16], 2, checked=False)
     assert 2.2 <= r["ident"] < 3 and r["ok"]
+
+
+def test_zone_limit_matches_wave1():
+    assert 0.03 <= contrast.zone_limit("#828bb8", "#1a1b26", 0.5) <= 0.06
+
+
+def test_zone_limit_lower_for_dimmer_text():
+    assert contrast.zone_limit("#6b8a6b", "#0b100c", 0.5) < contrast.zone_limit("#828bb8", "#1a1b26", 0.5)

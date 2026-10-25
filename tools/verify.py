@@ -22,7 +22,6 @@ STATES = ["startpage", "dark-site", "light-site", "many-tabs", "hover", "unfocus
           "bookmarks-panel", "address-dropdown", "find", "downloads-panel"]
 QUICK = dict(sizes=[(1920, 1080)], layouts=["tabs-top"], states=["startpage", "many-tabs"])
 SCALE = 2  # every screenshot is taken at device scale 2
-DIM = "rgb(135, 144, 189)"  # #828bb8 as Vivaldi renders it at Color Contrast 7
 BRIGHT = "rgb(255, 255, 255)"
 TEXT_FLOOR, UI_FLOOR, BLURRED_FLOOR = 4.5, 3.0, 3.0
 # Selected text in a focused address field: Chromium paints the selection from the highlight colour
@@ -145,6 +144,13 @@ def _hidden_text_shot(v: Vivaldi, path: Path) -> Path:
     return path
 
 
+def expected_dim(v: Vivaldi) -> str:
+    """The inactive-tab colour this theme should show: Vivaldi's rendered --colorFg (after Color Contrast)."""
+    hexv = v.run_ui("getComputedStyle(document.getElementById('browser')).getPropertyValue('--colorFg').trim()")
+    r, g, b = contrast.parse(hexv)
+    return f"rgb({r}, {g}, {b})"
+
+
 def check_frame(v: Vivaldi, label: str, shot: Path, floor: float = TEXT_FLOOR, hovered: int | None = None,
                 blurred: bool = False, url_floor: float | None = None) -> list[str]:
     failures = []
@@ -152,10 +158,11 @@ def check_frame(v: Vivaldi, label: str, shot: Path, floor: float = TEXT_FLOOR, h
     if "unified-ui" not in m["classes"] or "unified-ui-transparent" in m["classes"]:
         failures.append(f"{label}: browser is not in opaque unified mode ({m['classes']})")
     hidden = _hidden_text_shot(v, shot.with_name(shot.stem + ".bg.png"))
+    dim = expected_dim(v)
     for i, tab in enumerate(m["tabs"]):
         if tab["rect"][2] < 4:
             continue  # pinned tabs have no title
-        expected = BRIGHT if tab["active"] else DIM
+        expected = BRIGHT if tab["active"] else dim
         if blurred:
             # Vivaldi dims everything further when the window loses focus; inactive titles must still not be bright
             if not tab["active"] and contrast.parse(tab["color"]) == contrast.parse(BRIGHT):

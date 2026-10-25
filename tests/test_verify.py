@@ -13,13 +13,13 @@ pytestmark = pytest.mark.vivaldi
 WHITE_SCENE = SCENE.replace("#0c0e14", "#f4f4f6").replace("#1f2335", "#ffffff")
 
 
-def make_theme(tmp_path: Path, name: str, scene: str = SCENE, highlight: str = "#7aa2f7") -> Path:
+def make_theme(tmp_path: Path, name: str, scene: str = SCENE, highlight: str = "#7aa2f7", **colours) -> Path:
     theme = tmp_path / "themes" / name.lower().replace(" ", "-")
     theme.mkdir(parents=True)
     (theme / "scene.py").write_text(scene)
     (theme / "theme.json").write_text(json.dumps(dict(
         slug=theme.name, name=name, id="11111111-2222-4333-8444-%012d" % (abs(hash(name)) % 10**12),
-        highlight=highlight, radius=8, alpha=0.5, blur=4, webp_quality=90)))
+        highlight=highlight, radius=8, alpha=0.5, blur=4, webp_quality=90, **colours)))
     return theme
 
 
@@ -191,3 +191,11 @@ def test_controls_audit_skips_hidden_and_exempts_disabled(tmp_path):
     assert flat == [], f"measured under something that covers them: {flat}"
     disabled = [r for r in controls if r.get("disabled")]
     assert disabled and all(r["ok"] for r in disabled)
+
+
+def test_quick_verify_sage_fixture(tmp_path):
+    dark = SCENE.replace("#0c0e14", "#050806").replace("#1f2335", "#0b100c")
+    theme = make_theme(tmp_path, "Sage Fixture", dark, highlight="#00ff41", bg="#0b100c", fg="#6b8a6b",
+                       accent="#060906", window="#060906", contrast=7)
+    report = verify.verify_theme(theme, quick=True, out=tmp_path / "out")
+    assert report.failures == [], report.failures
