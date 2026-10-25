@@ -9,16 +9,21 @@ from tools.svg import H, W
 from tools.verify import crop_check
 
 REPO = Path(__file__).resolve().parent.parent
-THEMES = ["shibuya-nocturne", "neon-fuji", "silk-nocturne"]
+THEMES = ["shibuya-nocturne", "neon-fuji", "silk-nocturne", "paris-nocturne", "terminal-city", "pixel-valley", "8-bit-cosmos"]
 BUSY = json.loads((REPO / "tools" / "startpage_busy.json").read_text())
 
 
 @pytest.mark.parametrize("slug", THEMES)
 def test_scene_builds(slug):
     scene = package.load_scene(REPO / "themes" / slug)
-    a, b = scene.build(), scene.build()
-    assert a == b, "scene output must be deterministic"
-    assert f'width="{W}" height="{H}"' in a
+    if hasattr(scene, "build_image"):  # raster (pixel-art) scene
+        a, b = scene.build_image(), scene.build_image()
+        assert a.size == (W, H)
+        assert a.tobytes() == b.tobytes(), "scene output must be deterministic"
+    else:
+        a, b = scene.build(), scene.build()
+        assert a == b, "scene output must be deterministic"
+        assert f'width="{W}" height="{H}"' in a
     x0, y0, x1, y1 = scene.HERO_BOX
     assert 0 <= x0 < x1 <= W and 0 <= y0 < y1 <= H
 
@@ -46,10 +51,14 @@ def test_bar_zones_are_dark(slug, tmp_path):
     from PIL import Image
     from tools import contrast
     from tools.render import render_svg
-    svg = tmp_path / "art.svg"
-    svg.write_text(package.load_scene(REPO / "themes" / slug).build())
-    render_svg(svg, tmp_path / "art.png")
-    img = Image.open(tmp_path / "art.png").convert("RGB").reduce(2)  # ignore single sub-pixel sparkles
+    scene = package.load_scene(REPO / "themes" / slug)
+    if hasattr(scene, "build_image"):
+        img = scene.build_image().convert("RGB").reduce(2)
+    else:
+        svg = tmp_path / "art.svg"
+        svg.write_text(scene.build())
+        render_svg(svg, tmp_path / "art.png")
+        img = Image.open(tmp_path / "art.png").convert("RGB").reduce(2)  # ignore single sub-pixel sparkles
     for name, (x0, y0, x1, y1) in ZONES.items():
         region = img.crop((x0 // 2, y0 // 2, x1 // 2, y1 // 2))
         worst = max(set(region.get_flattened_data()), key=contrast.luminance)

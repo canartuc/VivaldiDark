@@ -1,0 +1,16 @@
+{
+ "slug": "paris-nocturne",
+ "name": "Paris Nocturne",
+ "id": "b1a64915-2114-42cb-a5b7-16b357e582c4",
+ "highlight": "#5ea8f0",
+ "radius": 10,
+ "alpha": 0.5,
+ "blur": 4,
+ "webp_quality": 95,
+ "bg": "#0e1428",
+ "fg": "#8d95b5",
+ "accent": "#070a14",
+ "window": "#070a14",
+ "contrast": 7,
+ "icons": "outline"
+}
