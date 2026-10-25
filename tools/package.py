@@ -9,7 +9,7 @@ from pathlib import Path
 from PIL import Image
 
 from tools.render import render_svg
-from tools.settings_schema import EXPORT_KEYS, MAX_ZIP_BYTES, MIN_ALPHA, MIN_IMAGE, SHARED
+from tools.settings_schema import DEFAULT_COLOURS, EXPORT_KEYS, MAX_ZIP_BYTES, MIN_ALPHA, MIN_IMAGE, SHARED
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -24,6 +24,12 @@ class ThemeConfig:
     alpha: float
     blur: int
     webp_quality: int
+    bg: str = DEFAULT_COLOURS["bg"]
+    fg: str = DEFAULT_COLOURS["fg"]
+    accent: str = DEFAULT_COLOURS["accent"]
+    window: str = DEFAULT_COLOURS["window"]
+    contrast: int = DEFAULT_COLOURS["contrast"]
+    icons: str = "outline"
 
 
 def load_config(theme_dir: Path) -> ThemeConfig:
@@ -43,7 +49,12 @@ def build_settings(cfg: ThemeConfig, buttons: dict[str, str]) -> dict:
         "alpha": cfg.alpha,
         "blur": cfg.blur,
         "buttons": dict(buttons),
+        "colorAccentBg": cfg.accent,
+        "colorBg": cfg.bg,
+        "colorFg": cfg.fg,
         "colorHighlightBg": cfg.highlight,
+        "colorWindowBg": cfg.window,
+        "contrast": cfg.contrast,
         "id": cfg.id,
         "name": cfg.name,
         "radius": cfg.radius,

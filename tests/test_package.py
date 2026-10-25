@@ -118,3 +118,28 @@ def test_validate_rejects_prefixed_names(good, name):
     settings, img, zp = good
     settings["name"] = name
     assert any("name" in p for p in package.validate(settings, img, zp))
+
+
+REPO = Path(__file__).resolve().parent.parent
+WAVE1 = ["shibuya-nocturne", "neon-fuji", "silk-nocturne"]
+
+
+@pytest.mark.parametrize("slug", WAVE1)
+def test_wave1_settings_unchanged(slug):
+    theme = REPO / "themes" / slug
+    cfg = package.load_config(theme)
+    with zipfile.ZipFile(theme / package.zip_name(cfg)) as z:
+        committed = json.loads(z.read("settings.json"))
+    assert package.build_settings(cfg, committed["buttons"]) == committed
+
+
+@pytest.mark.parametrize("slug", WAVE1)
+def test_shipped_themes_state_their_colours(slug):
+    raw = json.loads((REPO / "themes" / slug / "theme.json").read_text())
+    assert {"bg", "fg", "accent", "window", "contrast", "icons"} <= set(raw)
+
+
+def test_build_settings_uses_theme_colours():
+    s = package.build_settings(make_cfg(bg="#0b100c", fg="#6b8a6b", accent="#060906", window="#060906", contrast=5), {})
+    assert (s["colorBg"], s["colorFg"], s["colorAccentBg"], s["colorWindowBg"], s["contrast"]) == \
+        ("#0b100c", "#6b8a6b", "#060906", "#060906", 5)

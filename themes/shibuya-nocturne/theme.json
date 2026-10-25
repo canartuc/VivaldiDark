@@ -6,5 +6,11 @@
  "radius": 8,
  "alpha": 0.5,
  "blur": 4,
- "webp_quality": 90
+ "webp_quality": 90,
+ "bg": "#1a1b26",
+ "fg": "#828bb8",
+ "accent": "#16161e",
+ "window": "#16161e",
+ "contrast": 7,
+ "icons": "outline"
 }
