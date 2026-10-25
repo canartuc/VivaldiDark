@@ -153,3 +153,30 @@ def test_selected_address_text_uses_selection_floor(tmp_path):
         verify.state_teardown(v, "address-dropdown")
     assert opts.get("url_floor") == verify.SELECTION_FLOOR
     assert not [f for f in fails if "address" in f], fails
+
+
+def test_controls_audit_reads_the_visible_settings_tab(tmp_path):
+    with Vivaldi() as v:
+        verify.prepare_tabs(v)  # already contains a Settings tab, like the full run
+        verify.emulate(v, (1920, 1080))
+        results = verify.audit_controls(v, sections=["general"], shots=tmp_path / "shots")
+    unlabeled = [r for r in results if r["kind"] != "text" and not r["label"]]
+    assert results and unlabeled == []
+
+
+def test_native_menu_retries_once_after_unprovable_capture(tmp_path, monkeypatch):
+    from tools import macos, package
+    calls = {"n": 0}
+
+    def flaky(v, selector, path):
+        calls["n"] += 1
+        if calls["n"] % 2 == 1:
+            raise macos.UnsafeCapture("screen changed during capture")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"png")
+        return path
+    monkeypatch.setattr(macos, "native_menu", flaky)
+    monkeypatch.setattr(verify, "NATIVE_MENUS", {"tab": ".tab-position .tab:not(.active)"})
+    zp = package.build_theme(make_theme(tmp_path, "Retry Fixture"), tmp_path / "icons")
+    captured, pending = verify.native_menus(zp, tmp_path / "native")
+    assert len(captured) == 1 and pending == []

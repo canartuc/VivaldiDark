@@ -307,8 +307,11 @@ def set_layout(v: Vivaldi, layout: str) -> None:
 
 
 # --- audits ---------------------------------------------------------------------------------
+# Several Settings tabs can exist; only the visible one is drawn, so every query is scoped to it.
+SETTINGS_ROOT = "[...document.querySelectorAll('.vivaldi-settings')].find(e => e.checkVisibility())"
+
 CONTROLS_JS = """(() => {
-  const root = document.querySelector('.vivaldi-settings');
+  const root = """ + SETTINGS_ROOT + """;
   const vis = r => r.width > 0 && r.height > 0 && r.y >= 0 && r.bottom <= innerHeight && r.x >= 0 && r.right <= innerWidth;
   const out = [];
   root.querySelectorAll('input[type=checkbox], input[type=radio], input[type=range]').forEach(e => {
@@ -328,11 +331,16 @@ CONTROLS_JS = """(() => {
 
 
 def _scroller(v: Vivaldi) -> None:
-    v.run_ui("window.__vdScroll = document.querySelector('.vivaldi-settings .settings-content'), true")
+    v.run_ui(f"window.__vdScroll = ({SETTINGS_ROOT}).querySelector('.settings-content'), true")
 
 
 def section_selector(section: str) -> str:
     return f'.vivaldi-settings .tree-item[data-id="{section}"] .tree-row'
+
+
+def _section_centre(v: Vivaldi, section: str):
+    return v.run_ui(f"""(() => {{ const e = ({SETTINGS_ROOT}).querySelector({json.dumps(section_selector(section).replace('.vivaldi-settings ', ''))});
+      if (!e) return null; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }})()""")
 
 
 def audit_controls(v: Vivaldi, sections: list[str] | None = None, shots: Path | None = None) -> list[dict]:
@@ -341,11 +349,11 @@ def audit_controls(v: Vivaldi, sections: list[str] | None = None, shots: Path | 
     shots.mkdir(parents=True, exist_ok=True)
     v.open_tabs(["vivaldi://settings/general/"])
     _activate(v, "Settings")
-    v._wait_js("!!document.querySelector('.vivaldi-settings .tree-item')", 15)
-    sections = sections or v.run_ui("[...document.querySelectorAll('.vivaldi-settings .tree-item[aria-level=\"1\"]')].map(e => e.dataset.id).filter(id => id !== 'all')")
+    v._wait_js(f"!!(({SETTINGS_ROOT}) || {{querySelector: () => null}}).querySelector('.tree-item')", 15)
+    sections = sections or v.run_ui(f"[...({SETTINGS_ROOT}).querySelectorAll('.tree-item[aria-level=\"1\"]')].map(e => e.dataset.id).filter(id => id !== 'all')")
     results, seen = [], set()
     for sec in sections:
-        pt = _centre(v, section_selector(sec))
+        pt = _section_centre(v, sec)
         _click(v, *pt)
         time.sleep(1.2)
         _scroller(v)
@@ -433,20 +441,29 @@ NATIVE_MENUS = {  # name -> element to right-click
 
 
 def native_menus(zip_path: Path, shots: Path) -> tuple[list[Path], list[str]]:
-    """Capture each native macOS menu over the theme, one fresh Vivaldi per menu (quitting closes it)."""
+    """Capture each native macOS menu over the theme, one fresh Vivaldi per attempt (quitting closes it).
+
+    An unprovable capture (the screen changed meanwhile) is deleted unseen and retried once.
+    """
     captured, pending = [], []
     for name, selector in NATIVE_MENUS.items():
-        with Vivaldi() as v:
-            v.install_theme(zip_path)
-            prepare_tabs(v)
-            if name == "page":
-                _activate(v, "Light site")
-            else:
-                _activate(v, "Start Page", "startpage")
-            try:
-                captured.append(macos.native_menu(v, selector, Path(shots) / f"native-{name}.png"))
-            except (macos.UnsafeCapture, macos.NotFrontmost) as e:
-                pending.append(f"native menu {name}: {e}")
+        error = None
+        for _ in range(2):
+            with Vivaldi() as v:
+                v.install_theme(zip_path)
+                prepare_tabs(v)
+                if name == "page":
+                    _activate(v, "Light site")
+                else:
+                    _activate(v, "Start Page", "startpage")
+                try:
+                    captured.append(macos.native_menu(v, selector, Path(shots) / f"native-{name}.png"))
+                    error = None
+                    break
+                except (macos.UnsafeCapture, macos.NotFrontmost) as e:
+                    error = e
+        if error:
+            pending.append(f"native menu {name}: {error}")
     return captured, pending
 
 
