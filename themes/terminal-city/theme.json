@@ -1,0 +1,16 @@
+{
+ "slug": "terminal-city",
+ "name": "Terminal City",
+ "id": "16c1210b-a536-444d-b0ff-80f7da8e9929",
+ "highlight": "#00ff41",
+ "radius": 4,
+ "alpha": 0.5,
+ "blur": 4,
+ "webp_quality": 95,
+ "bg": "#0b100c",
+ "fg": "#6b8a6b",
+ "accent": "#060906",
+ "window": "#060906",
+ "contrast": 7,
+ "icons": "pixel"
+}

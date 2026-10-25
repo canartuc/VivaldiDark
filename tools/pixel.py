@@ -33,16 +33,22 @@ def _zone(x: int, y: int) -> float:
     return max(top, left, bottom)
 
 
+LEVELS = 8  # shade quantisation for the dithered fade
+
+
 def edge_shade(img: Image.Image, strength: float = 0.9) -> None:
-    """Sink the art into shadow under the bars; the fade beyond them is Bayer-dithered (no bands)."""
+    """Sink the art into shadow under the bars. Beyond them the shade fades out in LEVELS steps, each
+    pixel dithered (Bayer) between the two nearest steps, so the fade is smooth and shows no edge."""
     px = img.load()
     for y in range(PH):
         for x in range(PW):
             z = _zone(x, y)
             if z <= 0:
                 continue
-            if z < 1.0:  # dithered fade: each pixel is either fully shaded or a lighter step
-                z = 1.0 if z * 16 > BAYER[y % 4][x % 4] + 0.5 else z * 0.5
+            if z < 1.0:
+                q = z * LEVELS
+                lo = int(q)
+                z = (lo + (1 if (q - lo) * 16 > BAYER[y % 4][x % 4] + 0.5 else 0)) / LEVELS
             a = strength * z
             r, g, b = px[x, y]
             px[x, y] = (round(r * (1 - a) + SHADE[0] * a), round(g * (1 - a) + SHADE[1] * a), round(b * (1 - a) + SHADE[2] * a))

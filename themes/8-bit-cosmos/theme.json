@@ -1,0 +1,16 @@
+{
+ "slug": "8-bit-cosmos",
+ "name": "8-Bit Cosmos",
+ "id": "5bb43145-9455-479b-bd57-de3f4d0bd8df",
+ "highlight": "#00aaff",
+ "radius": 4,
+ "alpha": 0.5,
+ "blur": 4,
+ "webp_quality": 95,
+ "bg": "#0b100c",
+ "fg": "#6b8a6b",
+ "accent": "#060906",
+ "window": "#060906",
+ "contrast": 7,
+ "icons": "pixel"
+}
