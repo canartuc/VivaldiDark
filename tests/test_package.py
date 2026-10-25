@@ -143,3 +143,27 @@ def test_build_settings_uses_theme_colours():
     s = package.build_settings(make_cfg(bg="#0b100c", fg="#6b8a6b", accent="#060906", window="#060906", contrast=5), {})
     assert (s["colorBg"], s["colorFg"], s["colorAccentBg"], s["colorWindowBg"], s["contrast"]) == \
         ("#0b100c", "#6b8a6b", "#060906", "#060906", 5)
+
+
+RASTER_SCENE = """
+from PIL import Image
+HERO_BOX = (3000.0, 600.0, 3400.0, 1000.0)
+
+def build_image():
+    img = Image.new("RGB", (480, 270), (8, 12, 9))
+    for x in range(0, 480, 3):
+        img.putpixel((x, 150), (0, 255, 65))
+    return img.resize((3840, 2160), Image.NEAREST)
+"""
+
+
+def test_pixel_background_is_lossless_and_small(tmp_path):
+    theme = tmp_path / "themes" / "raster"
+    theme.mkdir(parents=True)
+    (theme / "scene.py").write_text(RASTER_SCENE)
+    (theme / "theme.json").write_text(json.dumps({**make_cfg(slug="raster", name="Raster Fixture").__dict__}))
+    zp = package.build_theme(theme, tmp_path / "icons")
+    expected = package.load_scene(theme).build_image().convert("RGB")
+    got = Image.open(theme / "background.webp").convert("RGB")
+    assert list(got.get_flattened_data()) == list(expected.get_flattened_data())
+    assert zp.stat().st_size < 8 * 1024 * 1024

@@ -91,11 +91,15 @@ def build_theme(theme_dir: Path, icons_dir: Path) -> Path:
     work = theme_dir.parent.parent / "build" / cfg.slug
     work.mkdir(parents=True, exist_ok=True)
 
-    svg_path, png_path = work / "art.svg", work / "art.png"
-    svg_path.write_text(load_scene(theme_dir).build())
-    render_svg(svg_path, png_path)
+    scene = load_scene(theme_dir)
     image = theme_dir / "background.webp"
-    Image.open(png_path).convert("RGB").save(image, "WEBP", quality=cfg.webp_quality, method=6)
+    if hasattr(scene, "build_image"):  # raster (pixel-art) scene: lossless keeps every pixel edge hard
+        scene.build_image().convert("RGB").save(image, "WEBP", lossless=True, method=6)
+    else:
+        svg_path, png_path = work / "art.svg", work / "art.png"
+        svg_path.write_text(scene.build())
+        render_svg(svg_path, png_path)
+        Image.open(png_path).convert("RGB").save(image, "WEBP", quality=cfg.webp_quality, method=6)
 
     manifest = Path(icons_dir) / "manifest.json"
     buttons = json.loads(manifest.read_text()) if manifest.exists() else {}
