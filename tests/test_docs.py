@@ -47,3 +47,9 @@ def test_no_tower_trademark_anywhere():
         path = REPO / f
         if path.is_file():
             assert word.encode() not in path.read_bytes().lower(), f
+
+
+def test_terminal_city_copy_matches_the_art():
+    # the floating terminal window was removed from the scene at the owner's request
+    for f in ("themes/terminal-city/GALLERY.md", "README.md"):
+        assert "terminal window" not in (REPO / f).read_text().lower(), f

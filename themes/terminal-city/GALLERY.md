@@ -6,7 +6,7 @@ Each field below matches the upload form, so you can copy it straight in. Tick t
 
 - **Theme name:** Terminal City
 - **Description:**
-  > A pixel skyline at night under falling green code rain, with a pale pixel moon and a floating terminal window waiting at its prompt.
+  > A pixel skyline at night under falling green code rain, with a pale pixel moon above the rooftops.
   >
   > The artwork flows behind the tab bar, address bar, panel and status bar. Background tabs stay softly dimmed and the focused tab stays bright, so you always know where you are. Original pixel art, drawn on a 480×270 grid and scaled 8× to 4K.
   >
