@@ -109,6 +109,11 @@ def analyze_control(png: Path, rect, scale: float, checked: bool) -> dict:
     return result
 
 
+def same_colour(a: str, b: str, tol: int = 2) -> bool:
+    """Computed colours can jitter by a unit or two between frames; within `tol` per channel counts as equal."""
+    return all(abs(x - y) <= tol for x, y in zip(contrast.parse(a)[:3], contrast.parse(b)[:3]))
+
+
 # --- live helpers ---------------------------------------------------------------------------
 def _key(v: Vivaldi, key: str, code: str, vk: int, modifiers: int = 0) -> None:
     """Non-character keys (and shortcuts) must be rawKeyDown for Chromium to act on them."""
@@ -167,7 +172,7 @@ def check_frame(v: Vivaldi, label: str, shot: Path, floor: float = TEXT_FLOOR, h
             # Vivaldi dims everything further when the window loses focus; inactive titles must still not be bright
             if not tab["active"] and contrast.parse(tab["color"]) == contrast.parse(BRIGHT):
                 failures.append(f"{label}: inactive tab {i} title is white in an unfocused window")
-        elif i != hovered and tab["color"] != expected:
+        elif i != hovered and not same_colour(tab["color"], expected):
             failures.append(f"{label}: tab {i} title is {tab['color']}, expected {expected}")
         bg = contrast.worst_bg(hidden, tab["rect"], SCALE, tab["color"], text_png=shot)
         r = contrast.ratio(tab["color"], bg)

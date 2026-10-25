@@ -199,3 +199,9 @@ def test_quick_verify_sage_fixture(tmp_path):
                        accent="#060906", window="#060906", contrast=7)
     report = verify.verify_theme(theme, quick=True, out=tmp_path / "out")
     assert report.failures == [], report.failures
+
+
+def test_same_colour_tolerates_rounding_jitter():
+    assert verify.same_colour("rgb(113, 142, 113)", "rgb(112, 143, 111)")
+    assert not verify.same_colour("rgb(255, 255, 255)", "rgb(112, 143, 111)")
+    assert not verify.same_colour("rgb(116, 143, 111)", "rgb(112, 143, 111)")
